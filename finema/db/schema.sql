@@ -1,0 +1,164 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+DROP TABLE IF EXISTS comment_reports CASCADE;
+DROP TABLE IF EXISTS movie_comments CASCADE;
+DROP TABLE IF EXISTS movie_ratings CASCADE;
+DROP TABLE IF EXISTS movie_searches CASCADE;
+DROP TABLE IF EXISTS watch_events CASCADE;
+DROP TABLE IF EXISTS movie_views CASCADE;
+DROP TABLE IF EXISTS watchlist CASCADE;
+DROP TABLE IF EXISTS watch_progress CASCADE;
+DROP TABLE IF EXISTS movie_streams CASCADE;
+DROP TABLE IF EXISTS movie_genres CASCADE;
+DROP TABLE IF EXISTS genres CASCADE;
+DROP TABLE IF EXISTS movies CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
+DROP FUNCTION IF EXISTS set_updated_at() CASCADE;
+
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TABLE users (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email         VARCHAR(255) NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  display_name  VARCHAR(100),
+  avatar_url    TEXT,
+  role            VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+  account_status  VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (account_status IN ('active', 'suspended')),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TRIGGER users_updated_at
+  BEFORE UPDATE ON users
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();
+
+CREATE TABLE movies (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title            VARCHAR(255) NOT NULL,
+  description      TEXT,
+  release_year     SMALLINT,
+  duration_seconds INTEGER NOT NULL,
+  poster_url       TEXT,
+  backdrop_url     TEXT,
+  match_score      NUMERIC(5, 2),
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE genres (
+  id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE movie_genres (
+  movie_id UUID NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
+  genre_id UUID NOT NULL REFERENCES genres(id) ON DELETE CASCADE,
+  PRIMARY KEY (movie_id, genre_id)
+);
+
+CREATE TABLE movie_streams (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  movie_id         UUID NOT NULL UNIQUE REFERENCES movies(id) ON DELETE CASCADE,
+  hls_playlist_url TEXT NOT NULL,
+  quality_label    VARCHAR(20)
+);
+
+CREATE TABLE watch_progress (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id          UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  movie_id         UUID NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
+  progress_seconds INTEGER NOT NULL DEFAULT 0 CHECK (progress_seconds >= 0),
+  completed        BOOLEAN NOT NULL DEFAULT FALSE,
+  last_watched_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, movie_id)
+);
+
+CREATE INDEX idx_watch_progress_user_last_watched
+  ON watch_progress (user_id, last_watched_at DESC);
+
+CREATE TABLE movie_views (
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  movie_id   UUID NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
+  viewed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, movie_id)
+);
+
+CREATE INDEX idx_movie_views_user ON movie_views (user_id, viewed_at DESC);
+
+CREATE TABLE movie_searches (
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  movie_id    UUID NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
+  searched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, movie_id)
+);
+
+CREATE INDEX idx_movie_searches_user ON movie_searches (user_id, searched_at DESC);
+
+CREATE TABLE watch_events (
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  movie_id   UUID NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
+  watched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, movie_id)
+);
+
+CREATE INDEX idx_watch_events_user ON watch_events (user_id, watched_at DESC);
+
+CREATE TABLE watchlist (
+  user_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  movie_id  UUID NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
+  added_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, movie_id)
+);
+
+CREATE INDEX idx_watchlist_user_added
+  ON watchlist (user_id, added_at DESC);
+
+CREATE TABLE movie_ratings (
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  movie_id   UUID NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
+  rating     SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  rated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, movie_id)
+);
+
+CREATE INDEX idx_movie_ratings_movie_id ON movie_ratings (movie_id);
+CREATE INDEX idx_movie_ratings_user_rated ON movie_ratings (user_id, rated_at DESC);
+
+CREATE TABLE movie_comments (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  movie_id   UUID NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  parent_id  UUID REFERENCES movie_comments(id) ON DELETE CASCADE,
+  body       TEXT NOT NULL CHECK (char_length(body) BETWEEN 1 AND 2000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_movie_comments_movie_created
+  ON movie_comments (movie_id, created_at DESC);
+
+CREATE INDEX idx_movie_comments_parent_created
+  ON movie_comments (parent_id, created_at ASC);
+
+CREATE TABLE comment_reports (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  comment_id   UUID NOT NULL REFERENCES movie_comments(id) ON DELETE CASCADE,
+  reporter_id  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  reason       TEXT NOT NULL CHECK (char_length(reason) BETWEEN 1 AND 1000),
+  status       VARCHAR(20) NOT NULL DEFAULT 'pending'
+                 CHECK (status IN ('pending', 'resolved', 'dismissed')),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  resolved_at  TIMESTAMPTZ,
+  resolved_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  UNIQUE (comment_id, reporter_id)
+);
+
+CREATE INDEX idx_comment_reports_status_created
+  ON comment_reports (status, created_at DESC);
