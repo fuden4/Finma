@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -14,7 +15,11 @@ function getExecErrorMessage(error: unknown): string | null {
 }
 
 export function getFfmpegPath(): string {
-  return process.env.FFMPEG_PATH ?? "ffmpeg";
+  const configured = process.env.FFMPEG_PATH?.trim();
+  if (configured && existsSync(configured)) {
+    return configured;
+  }
+  return "ffmpeg";
 }
 
 function getFfprobePath(): string {
