@@ -9,7 +9,7 @@ import { requireAdmin } from "@/lib/auth";
 import { handleRouteError } from "@/lib/http";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 600;
 
 export async function GET() {
   try {

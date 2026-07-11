@@ -13,7 +13,7 @@ import { requireAdmin } from "@/lib/auth";
 import { assertUuid, handleRouteError } from "@/lib/http";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 600;
 
 interface RouteContext {
   params: Promise<{ id: string }>;

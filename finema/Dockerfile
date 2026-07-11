@@ -11,7 +11,7 @@ RUN npm ci
 
 COPY . .
 
-RUN mkdir -p public/images/avatars public/images/user-stickers
+RUN mkdir -p public/images/avatars public/images/user-stickers public/videos/uploads
 
 ENV NODE_ENV=production
 RUN npm run build

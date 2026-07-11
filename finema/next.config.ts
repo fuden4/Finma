@@ -5,12 +5,17 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "500mb",
     },
+    proxyClientMaxBodySize: "500mb",
   },
   async rewrites() {
     return [
       {
         source: "/images/:path*",
         destination: "/api/uploads/:path*",
+      },
+      {
+        source: "/videos/:path*",
+        destination: "/api/videos/:path*",
       },
     ];
   },

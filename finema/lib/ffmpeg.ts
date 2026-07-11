@@ -2,8 +2,16 @@ import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import { HttpError } from "@/lib/http";
 
 const execFileAsync = promisify(execFile);
+
+function getExecErrorMessage(error: unknown): string | null {
+  if (!error || typeof error !== "object") return null;
+  const stderr = "stderr" in error ? String(error.stderr).trim() : "";
+  const message = "message" in error ? String(error.message).trim() : "";
+  return stderr || message || null;
+}
 
 export function getFfmpegPath(): string {
   return process.env.FFMPEG_PATH ?? "ffmpeg";
@@ -22,20 +30,30 @@ function getFfprobePath(): string {
 
 export async function probeDuration(filePath: string): Promise<number> {
   const ffprobe = getFfprobePath();
-  const { stdout } = await execFileAsync(ffprobe, [
-    "-v",
-    "error",
-    "-show_entries",
-    "format=duration",
-    "-of",
-    "default=noprint_wrappers=1:nokey=1",
-    filePath,
-  ]);
-  const seconds = Math.round(parseFloat(stdout.trim()));
-  if (!Number.isFinite(seconds) || seconds <= 0) {
-    throw new Error("Could not determine video duration");
+  try {
+    const { stdout } = await execFileAsync(ffprobe, [
+      "-v",
+      "error",
+      "-show_entries",
+      "format=duration",
+      "-of",
+      "default=noprint_wrappers=1:nokey=1",
+      filePath,
+    ]);
+    const seconds = Math.round(parseFloat(stdout.trim()));
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+      throw new Error("Could not determine video duration");
+    }
+    return seconds;
+  } catch (error) {
+    const details = getExecErrorMessage(error);
+    throw new HttpError(
+      500,
+      details
+        ? `Could not read video duration: ${details}`
+        : "Could not read video duration"
+    );
   }
-  return seconds;
 }
 
 export async function transcodeToHls(
@@ -47,22 +65,32 @@ export async function transcodeToHls(
   const segmentPattern = path.join(outputDir, "segment_%03d.ts");
 
   const ffmpeg = getFfmpegPath();
-  await execFileAsync(ffmpeg, [
-    "-y",
-    "-i",
-    inputPath,
-    "-c:v",
-    "libx264",
-    "-c:a",
-    "aac",
-    "-hls_time",
-    "10",
-    "-hls_list_size",
-    "0",
-    "-hls_segment_filename",
-    segmentPattern,
-    playlistPath,
-  ]);
+  try {
+    await execFileAsync(ffmpeg, [
+      "-y",
+      "-i",
+      inputPath,
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-c:a",
+      "aac",
+      "-hls_time",
+      "10",
+      "-hls_list_size",
+      "0",
+      "-hls_segment_filename",
+      segmentPattern,
+      playlistPath,
+    ]);
+  } catch (error) {
+    const details = getExecErrorMessage(error);
+    throw new HttpError(
+      500,
+      details ? `Video transcoding failed: ${details}` : "Video transcoding failed"
+    );
+  }
 
   return playlistPath;
 }

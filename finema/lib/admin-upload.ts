@@ -5,6 +5,8 @@ import { HttpError } from "@/lib/http";
 import { probeDuration, transcodeToHls } from "@/lib/ffmpeg";
 import { slugifyTitle } from "@/lib/slug";
 import { saveImageFile } from "@/lib/upload";
+import { toVideoPublicUrl } from "@/lib/video-url";
+import { writeUploadToFile } from "@/lib/write-upload";
 
 export interface ParsedMovieForm {
   title: string;
@@ -136,15 +138,20 @@ export async function saveAndTranscodeVideo(
     `finema-upload-${Date.now()}-${video.name.replace(/[^\w.-]/g, "_")}`
   );
 
-  const buffer = Buffer.from(await video.arrayBuffer());
-  await fs.writeFile(tempPath, buffer);
+  await writeUploadToFile(video, tempPath);
 
   try {
     const duration_seconds = await probeDuration(tempPath);
-    const outputDir = path.join(process.cwd(), "public", "videos", slug);
+    const outputDir = path.join(
+      process.cwd(),
+      "public",
+      "videos",
+      "uploads",
+      slug
+    );
     await transcodeToHls(tempPath, outputDir);
     return {
-      hls_playlist_url: `/videos/${slug}/index.m3u8`,
+      hls_playlist_url: toVideoPublicUrl(`uploads/${slug}/index.m3u8`),
       duration_seconds,
       outputDir,
     };
