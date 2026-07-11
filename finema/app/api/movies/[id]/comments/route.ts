@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
-import { createComment, listCommentsByMovieId } from "@/db/queries";
+import { createComment, listCommentsByMovieId, recordUserMediaRecent } from "@/db/queries";
 import { requireActiveUser } from "@/lib/auth";
+import {
+  validateCommentContent,
+  validateCommentMedia,
+} from "@/lib/comment-media";
 import { assertUuid, handleRouteError, HttpError } from "@/lib/http";
 
 export async function GET(
@@ -32,17 +36,46 @@ export async function POST(
     const parentId =
       typeof body?.parent_id === "string" ? body.parent_id : null;
 
-    if (text.length < 1 || text.length > 2000) {
-      throw new HttpError(400, "Comment must be between 1 and 2000 characters");
+    let media;
+    try {
+      media = validateCommentMedia(body?.media_type, body?.media_url, user.id);
+      validateCommentContent(text, media);
+    } catch (err) {
+      throw new HttpError(
+        400,
+        err instanceof Error ? err.message : "Invalid comment media"
+      );
     }
 
     if (parentId) {
       assertUuid(parentId, "parent id");
     }
 
-    const comment = await createComment(id, user.id, text, parentId);
+    const comment = await createComment(id, user.id, text, parentId, media);
     if (!comment) {
       throw new HttpError(404, "Movie or parent comment not found");
+    }
+
+    if (media) {
+      const previewUrl =
+        typeof body?.media_preview_url === "string"
+          ? body.media_preview_url.trim()
+          : null;
+      const giphyId =
+        typeof body?.media_giphy_id === "string"
+          ? body.media_giphy_id.trim()
+          : null;
+      const label =
+        typeof body?.media_label === "string" ? body.media_label.trim() : null;
+
+      await recordUserMediaRecent(user.id, {
+        mediaType: media.type,
+        mediaUrl: media.url,
+        previewUrl:
+          media.type === "gif" ? previewUrl ?? media.url : previewUrl,
+        giphyId: media.type === "gif" ? giphyId : null,
+        label: media.type === "sticker" ? label : null,
+      });
     }
 
     return NextResponse.json({ comment }, { status: 201 });

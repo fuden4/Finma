@@ -1,5 +1,8 @@
 import type {
   AdminMovie,
+  CommentMediaLibrary,
+  CommentMediaLibraryItem,
+  CommentMediaType,
   CommentReportDetail,
   ContinueWatchingItem,
   Genre,
@@ -9,6 +12,7 @@ import type {
   RatedMovieItem,
   ReportResolveAction,
   UserCommentItem,
+  UserUploadedSticker,
   WatchlistItem,
   WatchHistoryItem,
   WatchProgress,
@@ -104,12 +108,87 @@ export async function getMovieComments(
 export async function postMovieComment(
   movieId: string,
   body: string,
-  parentId?: string | null
+  parentId?: string | null,
+  media?: {
+    type: "gif" | "sticker";
+    url: string;
+    previewUrl?: string;
+    giphyId?: string;
+    label?: string;
+  } | null
 ): Promise<{ comment: MovieComment }> {
   return apiFetch(`/api/movies/${movieId}/comments`, {
     method: "POST",
-    body: JSON.stringify({ body, parent_id: parentId ?? null }),
+    body: JSON.stringify({
+      body,
+      parent_id: parentId ?? null,
+      media_type: media?.type ?? null,
+      media_url: media?.url ?? null,
+      media_preview_url: media?.previewUrl ?? null,
+      media_giphy_id: media?.giphyId ?? null,
+      media_label: media?.label ?? null,
+    }),
   });
+}
+
+export async function searchGifs(
+  query: string,
+  offset = 0
+): Promise<{ gifs: { id: string; previewUrl: string; url: string }[] }> {
+  const params = new URLSearchParams({
+    q: query,
+    offset: String(offset),
+  });
+  return apiFetch(`/api/gifs/search?${params}`);
+}
+
+export async function getCommentMediaLibrary(): Promise<{
+  library: CommentMediaLibrary;
+}> {
+  return apiFetch("/api/comment-media/library");
+}
+
+export async function addCommentMediaFavorite(item: {
+  media_type: CommentMediaType;
+  media_url: string;
+  preview_url?: string | null;
+  giphy_id?: string | null;
+  label?: string | null;
+}): Promise<{ favorite: CommentMediaLibraryItem }> {
+  return apiFetch("/api/comment-media/favorites", {
+    method: "POST",
+    body: JSON.stringify(item),
+  });
+}
+
+export async function removeCommentMediaFavorite(item: {
+  media_type: CommentMediaType;
+  media_url: string;
+}): Promise<{ ok: boolean }> {
+  return apiFetch("/api/comment-media/favorites", {
+    method: "DELETE",
+    body: JSON.stringify(item),
+  });
+}
+
+export async function uploadSticker(
+  file: File,
+  label?: string
+): Promise<{ sticker: UserUploadedSticker }> {
+  const formData = new FormData();
+  formData.append("sticker_file", file);
+  if (label) formData.append("label", label);
+
+  const res = await fetch("/api/stickers/upload", {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error ?? "Upload failed");
+  }
+  return data as { sticker: UserUploadedSticker };
 }
 
 export async function reportComment(

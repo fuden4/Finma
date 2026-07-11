@@ -16,12 +16,41 @@ export interface PublicUser {
   account_status: AccountStatus;
 }
 
+export type CommentMediaType = "gif" | "sticker";
+
+export interface CommentMediaLibraryItem {
+  media_type: CommentMediaType;
+  media_url: string;
+  preview_url: string | null;
+  giphy_id: string | null;
+  label: string | null;
+  used_at?: string;
+  created_at?: string;
+}
+
+export interface UserUploadedSticker {
+  id: string;
+  url: string;
+  label: string;
+  created_at: string;
+}
+
+export interface CommentMediaLibrary {
+  gifFavorites: CommentMediaLibraryItem[];
+  gifRecent: CommentMediaLibraryItem[];
+  stickerFavorites: CommentMediaLibraryItem[];
+  stickerRecent: CommentMediaLibraryItem[];
+  uploadedStickers: UserUploadedSticker[];
+}
+
 export interface MovieComment {
   id: string;
   movie_id: string;
   user_id: string;
   parent_id: string | null;
   body: string;
+  media_type: CommentMediaType | null;
+  media_url: string | null;
   created_at: string;
   display_name: string | null;
   avatar_url: string | null;
@@ -37,6 +66,8 @@ export interface CommentReportDetail {
   status: ReportStatus;
   created_at: string;
   comment_body: string;
+  comment_media_type: CommentMediaType | null;
+  comment_media_url: string | null;
   comment_author_id: string;
   comment_author_name: string | null;
   comment_author_email: string;
@@ -52,6 +83,8 @@ export interface UserCommentItem {
   movie_title: string;
   movie_poster_url: string | null;
   body: string;
+  media_type: CommentMediaType | null;
+  media_url: string | null;
   created_at: string;
   user_rating: number | null;
 }

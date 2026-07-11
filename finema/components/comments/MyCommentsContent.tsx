@@ -7,6 +7,7 @@ import type { PublicUser, UserCommentItem } from "@/db/types";
 import { deleteMyComment, getMyComments } from "@/lib/api-client";
 import { Navbar } from "@/components/layout/Navbar";
 import { StarRatingDisplay } from "@/components/ratings/StarRatingDisplay";
+import { CommentMedia } from "@/components/comments/CommentMedia";
 
 interface MyCommentsContentProps {
   user: PublicUser;
@@ -129,9 +130,17 @@ export function MyCommentsContent({ user }: MyCommentsContentProps) {
                         {formatCommentDate(comment.created_at)}
                       </time>
                     </div>
-                    <p className="text-finema-muted whitespace-pre-wrap leading-relaxed">
-                      {comment.body}
-                    </p>
+                    {comment.body.length > 0 && (
+                      <p className="text-finema-muted whitespace-pre-wrap leading-relaxed">
+                        {comment.body}
+                      </p>
+                    )}
+                    {comment.media_type && comment.media_url && (
+                      <CommentMedia
+                        mediaType={comment.media_type}
+                        mediaUrl={comment.media_url}
+                      />
+                    )}
                   </div>
 
                   <button

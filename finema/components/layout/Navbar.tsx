@@ -1,13 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { AnimatePresence, motion, useScroll, useMotionValueEvent } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { motion, useScroll, useMotionValueEvent } from "framer-motion";
+import { useState } from "react";
 import type { PublicUser } from "@/db/types";
-import { logout } from "@/lib/api-client";
 import { openSearchModal } from "@/lib/search-events";
-import { isRegularUser } from "@/lib/user-utils";
 import { UserAvatar } from "@/components/profile/UserAvatar";
 
 interface NavbarProps {
@@ -15,46 +12,13 @@ interface NavbarProps {
   onAuthChange?: () => void;
 }
 
-export function Navbar({ user, onAuthChange }: NavbarProps) {
-  const router = useRouter();
+export function Navbar({ user }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
   const { scrollY } = useScroll();
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     setScrolled(latest > 20);
   });
-
-  async function handleLogout() {
-    await logout();
-    setMenuOpen(false);
-    onAuthChange?.();
-    router.refresh();
-  }
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (!menuRef.current) return;
-      const target = event.target;
-      if (target instanceof Node && !menuRef.current.contains(target)) {
-        setMenuOpen(false);
-      }
-    }
-
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setMenuOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, []);
 
   return (
     <motion.header
@@ -87,100 +51,21 @@ export function Navbar({ user, onAuthChange }: NavbarProps) {
           </button>
 
           {user ? (
-            <>
-              <div className="relative" ref={menuRef}>
-                <button
-                  type="button"
-                  onClick={() => setMenuOpen((prev) => !prev)}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded border border-white/10 hover:border-white/30 transition-colors"
-                  aria-haspopup="menu"
-                  aria-expanded={menuOpen}
-                  aria-label="Open user menu"
-                >
-                  <UserAvatar
-                    displayName={user.display_name}
-                    email={user.email}
-                    avatarUrl={user.avatar_url}
-                    size="sm"
-                  />
-                  <span className="hidden sm:block text-sm text-finema-muted">
-                    {user.display_name ?? user.email}
-                  </span>
-                </button>
-
-                <AnimatePresence>
-                  {menuOpen && (
-                    <motion.div
-                      role="menu"
-                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                      transition={{ duration: 0.16, ease: "easeOut" }}
-                      className="absolute right-0 mt-2 w-52 rounded-lg border border-white/10 bg-finema-surface/95 backdrop-blur-md shadow-xl p-1.5 z-50 origin-top-right"
-                    >
-                      {user.role === "admin" && (
-                        <Link
-                          href="/admin"
-                          onClick={() => setMenuOpen(false)}
-                          className="block rounded px-3 py-2 text-sm text-finema-accent hover:bg-white/5"
-                        >
-                          Admin Panel
-                        </Link>
-                      )}
-
-                      {isRegularUser(user) && (
-                        <>
-                      <Link
-                        href="/ratings"
-                        onClick={() => setMenuOpen(false)}
-                        className="block rounded px-3 py-2 text-sm text-finema-muted hover:text-finema-text hover:bg-white/5"
-                      >
-                        My Ratings
-                      </Link>
-                      <Link
-                        href="/watchlist"
-                        onClick={() => setMenuOpen(false)}
-                        className="block rounded px-3 py-2 text-sm text-finema-muted hover:text-finema-text hover:bg-white/5"
-                      >
-                        My List
-                      </Link>
-                      <Link
-                        href="/watch-history"
-                        onClick={() => setMenuOpen(false)}
-                        className="block rounded px-3 py-2 text-sm text-finema-muted hover:text-finema-text hover:bg-white/5"
-                      >
-                        Watch History
-                      </Link>
-                      <Link
-                        href="/comments"
-                        onClick={() => setMenuOpen(false)}
-                        className="block rounded px-3 py-2 text-sm text-finema-muted hover:text-finema-text hover:bg-white/5"
-                      >
-                        My Comments
-                      </Link>
-                        </>
-                      )}
-                      <Link
-                        href="/profile"
-                        onClick={() => setMenuOpen(false)}
-                        className="block rounded px-3 py-2 text-sm text-finema-muted hover:text-finema-text hover:bg-white/5"
-                      >
-                        Profile
-                      </Link>
-
-                      <div className="my-1 h-px bg-white/10" />
-                      <button
-                        type="button"
-                        onClick={() => void handleLogout()}
-                        className="w-full text-left rounded px-3 py-2 text-sm text-finema-muted hover:text-finema-text hover:bg-white/5"
-                      >
-                        Sign Out
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </>
+            <Link
+              href="/profile"
+              className="flex items-center gap-2 px-2 py-1.5 rounded border border-white/10 hover:border-white/30 transition-colors"
+              aria-label="Go to account"
+            >
+              <UserAvatar
+                displayName={user.display_name}
+                email={user.email}
+                avatarUrl={user.avatar_url}
+                size="sm"
+              />
+              <span className="hidden sm:block text-sm text-finema-muted">
+                {user.display_name ?? user.email}
+              </span>
+            </Link>
           ) : (
             <div className="flex items-center gap-2">
               <Link

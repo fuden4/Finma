@@ -3,6 +3,9 @@ import type { PoolClient } from "pg";
 import type {
   AdminMovie,
   AccountStatus,
+  CommentMediaLibrary,
+  CommentMediaLibraryItem,
+  CommentMediaType,
   CommentReportDetail,
   ContinueWatchingItem,
   Genre,
@@ -15,6 +18,7 @@ import type {
   ReportResolveAction,
   UserCommentItem,
   UserRole,
+  UserUploadedSticker,
   WatchlistItem,
   WatchHistoryItem,
   WatchProgress,
@@ -898,6 +902,20 @@ export async function updateUserAvatar(
   return toPublicUser(result.rows[0]);
 }
 
+export async function updateUserDisplayName(
+  userId: string,
+  displayName: string
+): Promise<PublicUser | null> {
+  const pool = getPool();
+  const result = await pool.query(
+    `UPDATE users SET display_name = $2 WHERE id = $1
+     RETURNING id, email, display_name, avatar_url, role, account_status`,
+    [userId, displayName]
+  );
+  if (result.rows.length === 0) return null;
+  return toPublicUser(result.rows[0]);
+}
+
 export async function listCommentsByMovieId(
   movieId: string
 ): Promise<MovieComment[]> {
@@ -909,6 +927,8 @@ export async function listCommentsByMovieId(
        mc.user_id,
        mc.parent_id,
        mc.body,
+       mc.media_type,
+       mc.media_url,
        mc.created_at,
        u.display_name,
        u.avatar_url,
@@ -928,6 +948,8 @@ export async function listCommentsByMovieId(
     user_id: row.user_id,
     parent_id: row.parent_id,
     body: row.body,
+    media_type: row.media_type ?? null,
+    media_url: row.media_url ?? null,
     created_at: row.created_at.toISOString(),
     display_name: row.display_name,
     avatar_url: row.avatar_url,
@@ -967,6 +989,8 @@ export async function listCommentsByUserId(
        m.title AS movie_title,
        m.poster_url AS movie_poster_url,
        mc.body,
+       mc.media_type,
+       mc.media_url,
        mc.created_at,
        mr.rating AS user_rating
      FROM movie_comments mc
@@ -983,6 +1007,8 @@ export async function listCommentsByUserId(
     movie_title: row.movie_title,
     movie_poster_url: row.movie_poster_url,
     body: row.body,
+    media_type: row.media_type ?? null,
+    media_url: row.media_url ?? null,
     created_at: row.created_at.toISOString(),
     user_rating: row.user_rating != null ? Number(row.user_rating) : null,
   }));
@@ -1005,7 +1031,8 @@ export async function createComment(
   movieId: string,
   userId: string,
   body: string,
-  parentId?: string | null
+  parentId?: string | null,
+  media?: { type: "gif" | "sticker"; url: string } | null
 ): Promise<MovieComment | null> {
   const pool = getPool();
   const movieExists = await pool.query(`SELECT id FROM movies WHERE id = $1`, [
@@ -1025,10 +1052,17 @@ export async function createComment(
   }
 
   const result = await pool.query(
-    `INSERT INTO movie_comments (movie_id, user_id, body, parent_id)
-     VALUES ($1, $2, $3, $4)
-     RETURNING id, movie_id, user_id, parent_id, body, created_at`,
-    [movieId, userId, body, parentId ?? null]
+    `INSERT INTO movie_comments (movie_id, user_id, body, parent_id, media_type, media_url)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, movie_id, user_id, parent_id, body, media_type, media_url, created_at`,
+    [
+      movieId,
+      userId,
+      body,
+      parentId ?? null,
+      media?.type ?? null,
+      media?.url ?? null,
+    ]
   );
   if (result.rows.length === 0) return null;
 
@@ -1041,6 +1075,8 @@ export async function createComment(
     user_id: row.user_id,
     parent_id: row.parent_id,
     body: row.body,
+    media_type: row.media_type ?? null,
+    media_url: row.media_url ?? null,
     created_at: row.created_at.toISOString(),
     display_name: user?.display_name ?? null,
     avatar_url: user?.avatar_url ?? null,
@@ -1113,6 +1149,8 @@ export async function listPendingReports(): Promise<CommentReportDetail[]> {
        cr.status,
        cr.created_at,
        mc.body AS comment_body,
+       mc.media_type AS comment_media_type,
+       mc.media_url AS comment_media_url,
        mc.user_id AS comment_author_id,
        author.display_name AS comment_author_name,
        author.email AS comment_author_email,
@@ -1137,6 +1175,8 @@ export async function listPendingReports(): Promise<CommentReportDetail[]> {
     status: row.status,
     created_at: row.created_at.toISOString(),
     comment_body: row.comment_body,
+    comment_media_type: row.comment_media_type ?? null,
+    comment_media_url: row.comment_media_url ?? null,
     comment_author_id: row.comment_author_id,
     comment_author_name: row.comment_author_name,
     comment_author_email: row.comment_author_email,
@@ -1248,4 +1288,207 @@ export async function deleteUserById(userId: string): Promise<boolean> {
     [userId]
   );
   return (result.rowCount ?? 0) > 0;
+}
+
+function mapLibraryRow(row: {
+  media_type: CommentMediaType;
+  media_url: string;
+  preview_url: string | null;
+  giphy_id: string | null;
+  label: string | null;
+  used_at?: Date;
+  created_at?: Date;
+}): CommentMediaLibraryItem {
+  return {
+    media_type: row.media_type,
+    media_url: row.media_url,
+    preview_url: row.preview_url,
+    giphy_id: row.giphy_id,
+    label: row.label,
+    used_at: row.used_at?.toISOString(),
+    created_at: row.created_at?.toISOString(),
+  };
+}
+
+export async function listUserMediaFavorites(
+  userId: string,
+  mediaType: CommentMediaType
+): Promise<CommentMediaLibraryItem[]> {
+  const pool = getPool();
+  const result = await pool.query(
+    `SELECT media_type, media_url, preview_url, giphy_id, label, created_at
+     FROM user_comment_media_favorites
+     WHERE user_id = $1 AND media_type = $2
+     ORDER BY created_at DESC
+     LIMIT 50`,
+    [userId, mediaType]
+  );
+  return result.rows.map((row) => mapLibraryRow(row));
+}
+
+export async function listUserMediaRecent(
+  userId: string,
+  mediaType: CommentMediaType,
+  limit = 20
+): Promise<CommentMediaLibraryItem[]> {
+  const pool = getPool();
+  const result = await pool.query(
+    `SELECT media_type, media_url, preview_url, giphy_id, label, used_at
+     FROM user_comment_media_recent
+     WHERE user_id = $1 AND media_type = $2
+     ORDER BY used_at DESC
+     LIMIT $3`,
+    [userId, mediaType, limit]
+  );
+  return result.rows.map((row) => mapLibraryRow(row));
+}
+
+export async function listUserUploadedStickers(
+  userId: string
+): Promise<UserUploadedSticker[]> {
+  const pool = getPool();
+  const result = await pool.query(
+    `SELECT id, url, label, created_at
+     FROM user_uploaded_stickers
+     WHERE user_id = $1
+     ORDER BY created_at DESC`,
+    [userId]
+  );
+  return result.rows.map((row) => ({
+    id: row.id,
+    url: row.url,
+    label: row.label,
+    created_at: row.created_at.toISOString(),
+  }));
+}
+
+export async function getCommentMediaLibrary(
+  userId: string
+): Promise<CommentMediaLibrary> {
+  const [gifFavorites, gifRecent, stickerFavorites, stickerRecent, uploadedStickers] =
+    await Promise.all([
+      listUserMediaFavorites(userId, "gif"),
+      listUserMediaRecent(userId, "gif"),
+      listUserMediaFavorites(userId, "sticker"),
+      listUserMediaRecent(userId, "sticker"),
+      listUserUploadedStickers(userId),
+    ]);
+
+  return {
+    gifFavorites,
+    gifRecent,
+    stickerFavorites,
+    stickerRecent,
+    uploadedStickers,
+  };
+}
+
+export async function addUserMediaFavorite(
+  userId: string,
+  item: {
+    mediaType: CommentMediaType;
+    mediaUrl: string;
+    previewUrl?: string | null;
+    giphyId?: string | null;
+    label?: string | null;
+  }
+): Promise<CommentMediaLibraryItem> {
+  const pool = getPool();
+  const result = await pool.query(
+    `INSERT INTO user_comment_media_favorites
+       (user_id, media_type, media_url, preview_url, giphy_id, label)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (user_id, media_type, media_url) DO UPDATE
+       SET preview_url = EXCLUDED.preview_url,
+           giphy_id = EXCLUDED.giphy_id,
+           label = EXCLUDED.label
+     RETURNING media_type, media_url, preview_url, giphy_id, label, created_at`,
+    [
+      userId,
+      item.mediaType,
+      item.mediaUrl,
+      item.previewUrl ?? null,
+      item.giphyId ?? null,
+      item.label ?? null,
+    ]
+  );
+  return mapLibraryRow(result.rows[0]);
+}
+
+export async function removeUserMediaFavorite(
+  userId: string,
+  mediaType: CommentMediaType,
+  mediaUrl: string
+): Promise<boolean> {
+  const pool = getPool();
+  const result = await pool.query(
+    `DELETE FROM user_comment_media_favorites
+     WHERE user_id = $1 AND media_type = $2 AND media_url = $3`,
+    [userId, mediaType, mediaUrl]
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function recordUserMediaRecent(
+  userId: string,
+  item: {
+    mediaType: CommentMediaType;
+    mediaUrl: string;
+    previewUrl?: string | null;
+    giphyId?: string | null;
+    label?: string | null;
+  }
+): Promise<void> {
+  const pool = getPool();
+  await pool.query(
+    `INSERT INTO user_comment_media_recent
+       (user_id, media_type, media_url, preview_url, giphy_id, label, used_at)
+     VALUES ($1, $2, $3, $4, $5, $6, NOW())
+     ON CONFLICT (user_id, media_type, media_url) DO UPDATE
+       SET preview_url = EXCLUDED.preview_url,
+           giphy_id = EXCLUDED.giphy_id,
+           label = EXCLUDED.label,
+           used_at = NOW()`,
+    [
+      userId,
+      item.mediaType,
+      item.mediaUrl,
+      item.previewUrl ?? null,
+      item.giphyId ?? null,
+      item.label ?? null,
+    ]
+  );
+}
+
+export async function createUserUploadedSticker(
+  userId: string,
+  url: string,
+  label: string
+): Promise<UserUploadedSticker> {
+  const pool = getPool();
+  const result = await pool.query(
+    `INSERT INTO user_uploaded_stickers (user_id, url, label)
+     VALUES ($1, $2, $3)
+     RETURNING id, url, label, created_at`,
+    [userId, url, label]
+  );
+  const row = result.rows[0];
+  return {
+    id: row.id,
+    url: row.url,
+    label: row.label,
+    created_at: row.created_at.toISOString(),
+  };
+}
+
+export async function userOwnsUploadedStickerUrl(
+  userId: string,
+  url: string
+): Promise<boolean> {
+  const pool = getPool();
+  const result = await pool.query(
+    `SELECT id FROM user_uploaded_stickers WHERE user_id = $1 AND url = $2`,
+    [userId, url]
+  );
+  return result.rows.length > 0;
 }

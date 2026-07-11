@@ -4,10 +4,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import type { MovieComment, PublicUser } from "@/db/types";
-import { getMovieComments, postMovieComment } from "@/lib/api-client";
+import { getMovieComments } from "@/lib/api-client";
 import { isRegularUser } from "@/lib/user-utils";
+import { CommentComposer } from "@/components/comments/CommentComposer";
 import { CommentItem } from "@/components/comments/CommentItem";
+import { DeleteCommentModal } from "@/components/comments/DeleteCommentModal";
 import { ReportCommentModal } from "@/components/comments/ReportCommentModal";
+import { useCommentMediaFavorites } from "@/components/comments/useCommentMediaFavorites";
 
 interface MovieCommentsProps {
   movieId: string;
@@ -18,13 +21,13 @@ interface MovieCommentsProps {
 export function MovieComments({ movieId, user, currentUserRating }: MovieCommentsProps) {
   const [comments, setComments] = useState<MovieComment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [body, setBody] = useState("");
-  const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reportCommentId, setReportCommentId] = useState<string | null>(null);
+  const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
   const [reportSuccess, setReportSuccess] = useState(false);
 
   const canInteract = isRegularUser(user);
+  const { favoriteUrls, toggleFavorite } = useCommentMediaFavorites(canInteract);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,23 +68,15 @@ export function MovieComments({ movieId, user, currentUserRating }: MovieComment
     );
   }
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    const trimmed = body.trim();
-    if (!trimmed || posting) return;
-
-    setPosting(true);
-    setError(null);
-
-    try {
-      const result = await postMovieComment(movieId, trimmed);
-      setComments((prev) => [result.comment, ...prev]);
-      setBody("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to post comment");
-    } finally {
-      setPosting(false);
-    }
+  function handleCommentDeleted(commentId: string) {
+    setComments((prev) =>
+      prev
+        .filter((comment) => comment.id !== commentId)
+        .map((comment) => ({
+          ...comment,
+          replies: comment.replies?.filter((reply) => reply.id !== commentId),
+        }))
+    );
   }
 
   return (
@@ -95,28 +90,14 @@ export function MovieComments({ movieId, user, currentUserRating }: MovieComment
       <h2 className="text-lg font-semibold text-finema-text mb-4">Comments</h2>
 
       {canInteract ? (
-        <form onSubmit={handleSubmit} className="mb-8 space-y-3">
-          <textarea
-            value={body}
-            onChange={(event) => setBody(event.target.value)}
-            placeholder="Share your thoughts about this movie..."
-            rows={3}
-            maxLength={2000}
-            className="w-full rounded-lg border border-white/10 bg-finema-surface/40 px-4 py-3 text-finema-text placeholder:text-finema-muted focus:outline-none focus:border-finema-accent/50 resize-y"
+        <div className="mb-8">
+          <CommentComposer
+            movieId={movieId}
+            onPosted={(comment) => {
+              setComments((prev) => [comment, ...prev]);
+            }}
           />
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-xs text-finema-muted">
-              {body.length}/2000
-            </span>
-            <button
-              type="submit"
-              disabled={posting || body.trim().length === 0}
-              className="px-5 py-2 rounded bg-finema-accent text-white font-semibold hover:bg-finema-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {posting ? "Posting..." : "Post comment"}
-            </button>
-          </div>
-        </form>
+        </div>
       ) : !user ? (
         <p className="mb-8 text-finema-muted">
           <Link
@@ -157,11 +138,21 @@ export function MovieComments({ movieId, user, currentUserRating }: MovieComment
                 canInteract={canInteract}
                 onReplyPosted={handleReplyPosted}
                 onReport={setReportCommentId}
+                onRequestDelete={setDeleteCommentId}
+                favoriteMediaUrls={favoriteUrls}
+                onToggleMediaFavorite={toggleFavorite}
               />
             </li>
           ))}
         </ul>
       )}
+
+      <DeleteCommentModal
+        open={deleteCommentId !== null}
+        commentId={deleteCommentId}
+        onClose={() => setDeleteCommentId(null)}
+        onDeleted={handleCommentDeleted}
+      />
 
       <ReportCommentModal
         open={reportCommentId !== null}

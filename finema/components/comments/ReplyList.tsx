@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { MovieComment, PublicUser } from "@/db/types";
+import type { CommentMediaType, MovieComment, PublicUser } from "@/db/types";
 import { CommentItem } from "@/components/comments/CommentItem";
 
 interface ReplyListProps {
@@ -11,8 +11,16 @@ interface ReplyListProps {
   user: PublicUser | null;
   currentUserRating?: number | null;
   canInteract: boolean;
+  favoriteMediaUrls?: Set<string>;
+  onToggleMediaFavorite?: (item: {
+    mediaType: CommentMediaType;
+    mediaUrl: string;
+    previewUrl?: string;
+    label?: string | null;
+  }) => Promise<void>;
   onReplyPosted: (parentId: string, reply: MovieComment) => void;
   onReport: (commentId: string) => void;
+  onRequestDelete?: (commentId: string) => void;
 }
 
 export function ReplyList({
@@ -22,6 +30,9 @@ export function ReplyList({
   user,
   currentUserRating,
   canInteract,
+  favoriteMediaUrls,
+  onToggleMediaFavorite,
+  onRequestDelete,
   onReplyPosted,
   onReport,
 }: ReplyListProps) {
@@ -47,6 +58,9 @@ export function ReplyList({
             parentDisplayName={parentDisplayName}
             onReplyPosted={onReplyPosted}
             onReport={onReport}
+            favoriteMediaUrls={favoriteMediaUrls}
+            onToggleMediaFavorite={onToggleMediaFavorite}
+            onRequestDelete={onRequestDelete}
           />
         </div>
       ))}

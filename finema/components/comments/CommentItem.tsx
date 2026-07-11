@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import type { MovieComment, PublicUser } from "@/db/types";
+import type { CommentMediaType, MovieComment, PublicUser } from "@/db/types";
 import { UserAvatar } from "@/components/profile/UserAvatar";
 import { StarRatingDisplay } from "@/components/ratings/StarRatingDisplay";
 import { ReplyForm } from "@/components/comments/ReplyForm";
 import { ReplyList } from "@/components/comments/ReplyList";
+import { CommentMedia } from "@/components/comments/CommentMedia";
+import { CommentMenu } from "@/components/comments/CommentMenu";
 
 interface CommentItemProps {
   comment: MovieComment;
@@ -15,8 +17,16 @@ interface CommentItemProps {
   canInteract: boolean;
   isReply?: boolean;
   parentDisplayName?: string;
+  favoriteMediaUrls?: Set<string>;
+  onToggleMediaFavorite?: (item: {
+    mediaType: CommentMediaType;
+    mediaUrl: string;
+    previewUrl?: string;
+    label?: string | null;
+  }) => Promise<void>;
   onReplyPosted: (parentId: string, reply: MovieComment) => void;
   onReport: (commentId: string) => void;
+  onRequestDelete?: (commentId: string) => void;
 }
 
 function formatCommentDate(iso: string): string {
@@ -38,6 +48,9 @@ function CommentBody({
   onReplyPosted,
   onReport,
   movieId,
+  favoriteMediaUrls,
+  onToggleMediaFavorite,
+  onRequestDelete,
 }: {
   comment: MovieComment;
   user: PublicUser | null;
@@ -50,6 +63,14 @@ function CommentBody({
   onReplyPosted: (parentId: string, reply: MovieComment) => void;
   onReport: (commentId: string) => void;
   movieId: string;
+  favoriteMediaUrls?: Set<string>;
+  onToggleMediaFavorite?: (item: {
+    mediaType: CommentMediaType;
+    mediaUrl: string;
+    previewUrl?: string;
+    label?: string | null;
+  }) => Promise<void>;
+  onRequestDelete?: (commentId: string) => void;
 }) {
   const displayRating =
     user?.id === comment.user_id
@@ -57,6 +78,30 @@ function CommentBody({
       : comment.user_rating;
 
   const isOwnComment = user?.id === comment.user_id;
+  const [favoritePending, setFavoritePending] = useState(false);
+
+  async function handleToggleMediaFavorite() {
+    if (
+      !comment.media_type ||
+      !comment.media_url ||
+      !onToggleMediaFavorite ||
+      favoritePending
+    ) {
+      return;
+    }
+
+    setFavoritePending(true);
+    try {
+      await onToggleMediaFavorite({
+        mediaType: comment.media_type,
+        mediaUrl: comment.media_url,
+        previewUrl: comment.media_url,
+        label: comment.media_type === "sticker" ? "Sticker" : null,
+      });
+    } finally {
+      setFavoritePending(false);
+    }
+  }
 
   return (
     <div className="flex items-start gap-3">
@@ -67,6 +112,25 @@ function CommentBody({
         size="sm"
       />
       <div className="min-w-0 flex-1">
+        <div className="mb-1 flex items-start justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <span className="font-medium text-finema-text">
+              {comment.display_name ?? "Anonymous"}
+            </span>
+            {displayRating != null && (
+              <StarRatingDisplay value={displayRating} size="sm" />
+            )}
+            <time
+              dateTime={comment.created_at}
+              className="text-xs text-finema-muted"
+            >
+              {formatCommentDate(comment.created_at)}
+            </time>
+          </div>
+          {isOwnComment && canInteract && onRequestDelete && (
+            <CommentMenu onDelete={() => onRequestDelete(comment.id)} />
+          )}
+        </div>
         {isReply && parentDisplayName && (
           <p className="mb-1.5 flex items-center gap-1.5 text-xs text-finema-muted">
             <svg
@@ -87,23 +151,21 @@ function CommentBody({
             </span>
           </p>
         )}
-        <div className="flex flex-wrap items-center gap-2 mb-1">
-          <span className="font-medium text-finema-text">
-            {comment.display_name ?? "Anonymous"}
-          </span>
-          {displayRating != null && (
-            <StarRatingDisplay value={displayRating} size="sm" />
-          )}
-          <time
-            dateTime={comment.created_at}
-            className="text-xs text-finema-muted"
-          >
-            {formatCommentDate(comment.created_at)}
-          </time>
-        </div>
-        <p className="text-finema-muted leading-relaxed whitespace-pre-wrap">
-          {comment.body}
-        </p>
+        {comment.body.length > 0 && (
+          <p className="text-finema-muted leading-relaxed whitespace-pre-wrap">
+            {comment.body}
+          </p>
+        )}
+        {comment.media_type && comment.media_url && (
+          <CommentMedia
+            mediaType={comment.media_type}
+            mediaUrl={comment.media_url}
+            canFavorite={canInteract && !!onToggleMediaFavorite}
+            isFavorite={favoriteMediaUrls?.has(comment.media_url) ?? false}
+            favoritePending={favoritePending}
+            onToggleFavorite={() => void handleToggleMediaFavorite()}
+          />
+        )}
 
         {canInteract && (
           <div className="mt-2 flex items-center gap-3">
@@ -153,6 +215,9 @@ export function CommentItem({
   parentDisplayName,
   onReplyPosted,
   onReport,
+  favoriteMediaUrls,
+  onToggleMediaFavorite,
+  onRequestDelete,
 }: CommentItemProps) {
   const [showReplyForm, setShowReplyForm] = useState(false);
 
@@ -178,6 +243,9 @@ export function CommentItem({
           onReplyPosted={onReplyPosted}
           onReport={onReport}
           movieId={movieId}
+          favoriteMediaUrls={favoriteMediaUrls}
+          onToggleMediaFavorite={onToggleMediaFavorite}
+          onRequestDelete={onRequestDelete}
         />
       </div>
     );
@@ -203,6 +271,9 @@ export function CommentItem({
             }}
             onReport={onReport}
             movieId={movieId}
+            favoriteMediaUrls={favoriteMediaUrls}
+            onToggleMediaFavorite={onToggleMediaFavorite}
+            onRequestDelete={onRequestDelete}
           />
         </div>
 
@@ -217,6 +288,9 @@ export function CommentItem({
               canInteract={canInteract}
               onReplyPosted={onReplyPosted}
               onReport={onReport}
+              favoriteMediaUrls={favoriteMediaUrls}
+              onToggleMediaFavorite={onToggleMediaFavorite}
+              onRequestDelete={onRequestDelete}
             />
           </div>
         )}
@@ -240,6 +314,9 @@ export function CommentItem({
         }}
         onReport={onReport}
         movieId={movieId}
+        favoriteMediaUrls={favoriteMediaUrls}
+        onToggleMediaFavorite={onToggleMediaFavorite}
+        onRequestDelete={onRequestDelete}
       />
     </div>
   );

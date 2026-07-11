@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { CommentReportDetail, ReportResolveAction } from "@/db/types";
 import { resolveReport } from "@/lib/api-client";
+import { CommentMedia } from "@/components/comments/CommentMedia";
 
 interface ReportTableProps {
   reports: CommentReportDetail[];
@@ -92,9 +93,17 @@ export function ReportTable({ reports, onResolved }: ReportTableProps) {
                 Comment by{" "}
                 {report.comment_author_name ?? report.comment_author_email}
               </p>
-              <p className="text-sm text-finema-text whitespace-pre-wrap">
-                {report.comment_body}
-              </p>
+              {report.comment_body.length > 0 && (
+                <p className="text-sm text-finema-text whitespace-pre-wrap">
+                  {report.comment_body}
+                </p>
+              )}
+              {report.comment_media_type && report.comment_media_url && (
+                <CommentMedia
+                  mediaType={report.comment_media_type}
+                  mediaUrl={report.comment_media_url}
+                />
+              )}
             </div>
 
             <div className="mb-4">

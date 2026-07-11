@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -7,6 +8,9 @@ import type { PublicUser } from "@/db/types";
 import { updateProfile } from "@/lib/api-client";
 import { UserAvatar } from "@/components/profile/UserAvatar";
 import { Navbar } from "@/components/layout/Navbar";
+
+const inputClassName =
+  "w-full px-4 py-3 rounded-lg bg-black/50 border border-white/10 text-finema-text placeholder:text-finema-muted/50 focus:outline-none focus:ring-2 focus:ring-finema-accent focus:border-transparent transition-shadow disabled:opacity-50";
 
 interface ProfileSettingsContentProps {
   user: PublicUser;
@@ -16,34 +20,68 @@ export function ProfileSettingsContent({ user: initialUser }: ProfileSettingsCon
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [user, setUser] = useState(initialUser);
+  const [displayName, setDisplayName] = useState(initialUser.display_name ?? "");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [savingAvatar, setSavingAvatar] = useState(false);
+  const [savingName, setSavingName] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [avatarSuccess, setAvatarSuccess] = useState(false);
+  const [nameSuccess, setNameSuccess] = useState(false);
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setSelectedFile(file);
-    setSuccess(false);
-    setError(null);
+    setAvatarSuccess(false);
+    setAvatarError(null);
 
     const objectUrl = URL.createObjectURL(file);
     setPreviewUrl(objectUrl);
   }
 
-  async function handleSubmit(event: React.FormEvent) {
+  async function handleNameSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!selectedFile) {
-      setError("Please choose an image first");
+    const trimmedName = displayName.trim();
+    if (!trimmedName) {
+      setNameError("Display name is required");
+      return;
+    }
+    if (trimmedName === (user.display_name ?? "")) {
       return;
     }
 
-    setSaving(true);
-    setError(null);
-    setSuccess(false);
+    setSavingName(true);
+    setNameError(null);
+    setNameSuccess(false);
+
+    try {
+      const formData = new FormData();
+      formData.append("displayName", trimmedName);
+      const result = await updateProfile(formData);
+      setUser(result.user);
+      setDisplayName(result.user.display_name ?? "");
+      setNameSuccess(true);
+      router.refresh();
+    } catch (err) {
+      setNameError(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setSavingName(false);
+    }
+  }
+
+  async function handleAvatarSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!selectedFile) {
+      setAvatarError("Please choose an image first");
+      return;
+    }
+
+    setSavingAvatar(true);
+    setAvatarError(null);
+    setAvatarSuccess(false);
 
     try {
       const formData = new FormData();
@@ -52,12 +90,12 @@ export function ProfileSettingsContent({ user: initialUser }: ProfileSettingsCon
       setUser(result.user);
       setSelectedFile(null);
       setPreviewUrl(null);
-      setSuccess(true);
+      setAvatarSuccess(true);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+      setAvatarError(err instanceof Error ? err.message : "Upload failed");
     } finally {
-      setSaving(false);
+      setSavingAvatar(false);
     }
   }
 
@@ -73,6 +111,12 @@ export function ProfileSettingsContent({ user: initialUser }: ProfileSettingsCon
         transition={{ duration: 0.4 }}
         className="pt-24 px-4 md:px-8 pb-16 max-w-lg mx-auto"
       >
+        <Link
+          href="/profile"
+          className="inline-block text-sm text-finema-muted hover:text-finema-text transition-colors mb-4"
+        >
+          ← Account
+        </Link>
         <h1 className="text-3xl font-bold text-finema-text mb-2">Profile</h1>
         <p className="text-finema-muted mb-8">
           Update your profile picture and account details.
@@ -103,7 +147,57 @@ export function ProfileSettingsContent({ user: initialUser }: ProfileSettingsCon
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleNameSubmit} className="space-y-4">
+            <div>
+              <label
+                htmlFor="displayName"
+                className="block text-sm font-medium text-finema-text mb-2"
+              >
+                Display name
+              </label>
+              <input
+                id="displayName"
+                type="text"
+                value={displayName}
+                onChange={(event) => {
+                  setDisplayName(event.target.value);
+                  setNameSuccess(false);
+                  setNameError(null);
+                }}
+                required
+                maxLength={100}
+                autoComplete="name"
+                disabled={savingName}
+                className={inputClassName}
+                placeholder="Your name"
+              />
+            </div>
+
+            {nameError && (
+              <p className="text-sm text-red-400" role="alert">
+                {nameError}
+              </p>
+            )}
+            {nameSuccess && (
+              <p className="text-sm text-finema-success">
+                Display name updated successfully.
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={
+                savingName ||
+                !displayName.trim() ||
+                displayName.trim() === (user.display_name ?? "")
+              }
+              className="px-6 py-2 rounded bg-finema-accent text-white font-semibold hover:bg-finema-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {savingName ? "Saving..." : "Save display name"}
+            </button>
+          </form>
+
+          <form onSubmit={handleAvatarSubmit} className="space-y-4 pt-2 border-t border-white/10">
             <div>
               <label className="block text-sm font-medium text-finema-text mb-2">
                 Profile image
@@ -117,12 +211,12 @@ export function ProfileSettingsContent({ user: initialUser }: ProfileSettingsCon
               />
             </div>
 
-            {error && (
+            {avatarError && (
               <p className="text-sm text-red-400" role="alert">
-                {error}
+                {avatarError}
               </p>
             )}
-            {success && (
+            {avatarSuccess && (
               <p className="text-sm text-finema-success">
                 Profile image updated successfully.
               </p>
@@ -130,10 +224,10 @@ export function ProfileSettingsContent({ user: initialUser }: ProfileSettingsCon
 
             <button
               type="submit"
-              disabled={saving || !selectedFile}
+              disabled={savingAvatar || !selectedFile}
               className="px-6 py-2 rounded bg-finema-accent text-white font-semibold hover:bg-finema-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {saving ? "Saving..." : "Save profile image"}
+              {savingAvatar ? "Saving..." : "Save profile image"}
             </button>
           </form>
         </div>

@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
 import { findUserById } from "@/db/queries";
 import { getSession } from "@/lib/session";
-import { AccountHubContent } from "@/components/profile/AccountHubContent";
+import { ProfileSettingsContent } from "@/components/profile/ProfileSettingsContent";
 
-export default async function ProfilePage() {
+export default async function ProfileSettingsPage() {
   const session = await getSession();
   if (!session.userId) {
-    redirect("/login");
+    redirect("/login?redirect=/profile/settings");
   }
 
   const user = await findUserById(session.userId);
@@ -14,5 +14,5 @@ export default async function ProfilePage() {
     redirect("/login");
   }
 
-  return <AccountHubContent user={user} />;
+  return <ProfileSettingsContent user={user} />;
 }

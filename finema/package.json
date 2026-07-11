@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "db:migrate": "tsx db/migrate.ts",
+    "db:migrate-comment-media": "tsx db/migrate-comment-media.ts",
+    "db:migrate-comment-media-library": "tsx db/migrate-comment-media-library.ts",
     "db:seed": "tsx db/migrate.ts --seed-only"
   },
   "dependencies": {
