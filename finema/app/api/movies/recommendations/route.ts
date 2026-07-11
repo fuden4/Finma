@@ -6,8 +6,8 @@ import { handleRouteError } from "@/lib/http";
 export async function GET() {
   try {
     const user = await requireUser();
-    const movies = await getRecommendationsForUser(user.id);
-    return NextResponse.json({ movies });
+    const recommendations = await getRecommendationsForUser(user.id);
+    return NextResponse.json(recommendations);
   } catch (error) {
     return handleRouteError(error);
   }

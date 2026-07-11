@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import type { MovieComment, PublicUser } from "@/db/types";
+import type { MovieComment, PublicUser, SeriesComment } from "@/db/types";
 import { getMovieComments } from "@/lib/api-client";
 import { isRegularUser } from "@/lib/user-utils";
 import { CommentComposer } from "@/components/comments/CommentComposer";
@@ -55,13 +55,13 @@ export function MovieComments({ movieId, user, currentUserRating }: MovieComment
     };
   }, [movieId]);
 
-  function handleReplyPosted(parentId: string, reply: MovieComment) {
+  function handleReplyPosted(parentId: string, reply: MovieComment | SeriesComment) {
     setComments((prev) =>
       prev.map((comment) =>
         comment.id === parentId
           ? {
               ...comment,
-              replies: [...(comment.replies ?? []), reply],
+              replies: [...(comment.replies ?? []), reply as MovieComment],
             }
           : comment
       )
@@ -94,7 +94,7 @@ export function MovieComments({ movieId, user, currentUserRating }: MovieComment
           <CommentComposer
             movieId={movieId}
             onPosted={(comment) => {
-              setComments((prev) => [comment, ...prev]);
+              setComments((prev) => [comment as MovieComment, ...prev]);
             }}
           />
         </div>

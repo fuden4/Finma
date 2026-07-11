@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import type { ContinueWatchingItem, Movie, PublicUser, WatchlistItem } from "@/db/types";
-import { getContinueWatching, getMe, getRecommendations, getWatchlist } from "@/lib/api-client";
+import type { ContinueWatchingItem, Movie, PublicUser, Series, WatchlistItem } from "@/db/types";
+import { getContinueWatching, getMe, getRecommendations, getWatchlist, getSeriesWatchlist } from "@/lib/api-client";
 import { groupMoviesByGenre } from "@/lib/movie-utils";
 import { isRegularUser } from "@/lib/user-utils";
 import { Navbar } from "@/components/layout/Navbar";
@@ -12,20 +12,24 @@ import { HeroSection } from "./HeroSection";
 import { MovieRow } from "./MovieRow";
 import { ContinueWatchingRow } from "./ContinueWatchingRow";
 import { WatchlistRow } from "./WatchlistRow";
+import { SeriesRow } from "./SeriesRow";
 
 interface HomeContentProps {
   movies: Movie[];
+  series: Series[];
   featured: Movie[];
 }
 
-export function HomeContent({ movies, featured }: HomeContentProps) {
+export function HomeContent({ movies, series, featured }: HomeContentProps) {
   const [user, setUser] = useState<PublicUser | null>(null);
   const [continueItems, setContinueItems] = useState<ContinueWatchingItem[]>(
     []
   );
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([]);
   const [recommended, setRecommended] = useState<Movie[]>([]);
+  const [recommendedSeries, setRecommendedSeries] = useState<Series[]>([]);
   const [watchlistIds, setWatchlistIds] = useState<Set<string>>(new Set());
+  const [seriesWatchlistIds, setSeriesWatchlistIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   const loadAuth = useCallback(async () => {
@@ -33,26 +37,33 @@ export function HomeContent({ movies, featured }: HomeContentProps) {
     setUser(me?.user ?? null);
     if (me?.user && isRegularUser(me.user)) {
       try {
-        const [cw, wl, rec] = await Promise.all([
+        const [cw, wl, rec, swl] = await Promise.all([
           getContinueWatching(),
           getWatchlist(),
           getRecommendations(),
+          getSeriesWatchlist().catch(() => ({ items: [] })),
         ]);
         setContinueItems(cw.items);
         setWatchlistItems(wl.items);
         setWatchlistIds(new Set(wl.items.map((item) => item.id)));
+        setSeriesWatchlistIds(new Set(swl.items.map((item) => item.id)));
         setRecommended(rec.movies);
+        setRecommendedSeries(rec.series);
       } catch {
         setContinueItems([]);
         setWatchlistItems([]);
         setWatchlistIds(new Set());
+        setSeriesWatchlistIds(new Set());
         setRecommended([]);
+        setRecommendedSeries([]);
       }
     } else {
       setContinueItems([]);
       setWatchlistItems([]);
       setWatchlistIds(new Set());
+      setSeriesWatchlistIds(new Set());
       setRecommended([]);
+      setRecommendedSeries([]);
     }
     setLoading(false);
   }, []);
@@ -147,6 +158,27 @@ export function HomeContent({ movies, featured }: HomeContentProps) {
           onWatchlistChange={handleWatchlistChange}
         />
 
+        {series.length > 0 && (
+          <SeriesRow
+            title="TV Series"
+            series={series}
+            user={regularUser}
+            watchlistIds={seriesWatchlistIds}
+            showWatchlistButton={!!regularUser}
+            onWatchlistChange={(seriesId, inWatchlist) => {
+              setSeriesWatchlistIds((prev) => {
+                const next = new Set(prev);
+                if (inWatchlist) {
+                  next.add(seriesId);
+                } else {
+                  next.delete(seriesId);
+                }
+                return next;
+              });
+            }}
+          />
+        )}
+
         {regularUser && recommended.length > 0 && (
           <MovieRow
             title="Recommended for you"
@@ -155,6 +187,27 @@ export function HomeContent({ movies, featured }: HomeContentProps) {
             watchlistIds={watchlistIds}
             showWatchlistButton
             onWatchlistChange={handleWatchlistChange}
+          />
+        )}
+
+        {regularUser && recommendedSeries.length > 0 && (
+          <SeriesRow
+            title="Series picks for you"
+            series={recommendedSeries}
+            user={regularUser}
+            watchlistIds={seriesWatchlistIds}
+            showWatchlistButton
+            onWatchlistChange={(seriesId, inWatchlist) => {
+              setSeriesWatchlistIds((prev) => {
+                const next = new Set(prev);
+                if (inWatchlist) {
+                  next.add(seriesId);
+                } else {
+                  next.delete(seriesId);
+                }
+                return next;
+              });
+            }}
           />
         )}
 

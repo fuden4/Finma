@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import type { CommentMediaType, MovieComment, PublicUser } from "@/db/types";
+import type { CommentMediaType, MovieComment, PublicUser, SeriesComment } from "@/db/types";
 import { CommentItem } from "@/components/comments/CommentItem";
 
 interface ReplyListProps {
   replies: MovieComment[];
   parentDisplayName: string;
-  movieId: string;
+  movieId?: string;
+  seriesId?: string;
   user: PublicUser | null;
   currentUserRating?: number | null;
   canInteract: boolean;
@@ -18,7 +19,7 @@ interface ReplyListProps {
     previewUrl?: string;
     label?: string | null;
   }) => Promise<void>;
-  onReplyPosted: (parentId: string, reply: MovieComment) => void;
+  onReplyPosted: (parentId: string, reply: MovieComment | SeriesComment) => void;
   onReport: (commentId: string) => void;
   onRequestDelete?: (commentId: string) => void;
 }
@@ -27,6 +28,7 @@ export function ReplyList({
   replies,
   parentDisplayName,
   movieId,
+  seriesId,
   user,
   currentUserRating,
   canInteract,
@@ -51,6 +53,7 @@ export function ReplyList({
           <CommentItem
             comment={reply}
             movieId={movieId}
+            seriesId={seriesId}
             user={user}
             currentUserRating={currentUserRating}
             canInteract={canInteract}

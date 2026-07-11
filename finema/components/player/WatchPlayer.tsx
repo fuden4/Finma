@@ -11,6 +11,8 @@ import { VideoControls } from "./VideoControls";
 
 interface WatchPlayerProps {
   movie: MovieDetail;
+  episodeId?: string;
+  backHref?: string;
 }
 
 type WebkitVideoElement = HTMLVideoElement & {
@@ -24,7 +26,11 @@ function isCoarsePointerDevice(): boolean {
   return window.matchMedia("(pointer: coarse)").matches;
 }
 
-export function WatchPlayer({ movie }: WatchPlayerProps) {
+export function WatchPlayer({
+  movie,
+  episodeId,
+  backHref,
+}: WatchPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isGuest, setIsGuest] = useState(true);
@@ -43,7 +49,7 @@ export function WatchPlayer({ movie }: WatchPlayerProps) {
     hlsUrl: movie.hls_playlist_url ?? "",
   });
 
-  useWatchProgress({ movieId: movie.id, videoRef, autoPlay: true });
+  useWatchProgress({ movieId: episodeId ? undefined : movie.id, episodeId, videoRef, autoPlay: true });
 
   useEffect(() => {
     isTouchRef.current = isCoarsePointerDevice();
@@ -255,6 +261,7 @@ export function WatchPlayer({ movie }: WatchPlayerProps) {
 
       <PlayerOverlay
         movie={movie}
+        backHref={backHref}
         isVisible={controlsVisible}
         isLoading={isLoading}
         error={error}

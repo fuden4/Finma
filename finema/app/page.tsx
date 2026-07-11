@@ -1,4 +1,4 @@
-import { listMovies } from "@/db/queries";
+import { listMovies, listSeries } from "@/db/queries";
 import type { Movie } from "@/db/types";
 import { HomeContent } from "@/components/home/HomeContent";
 
@@ -9,8 +9,8 @@ function pickFeatured(movies: Movie[], count = 5): Movie[] {
 }
 
 export default async function HomePage() {
-  const movies = await listMovies();
+  const [movies, series] = await Promise.all([listMovies(), listSeries()]);
   const featured = pickFeatured(movies);
 
-  return <HomeContent movies={movies} featured={featured} />;
+  return <HomeContent movies={movies} series={series} featured={featured} />;
 }

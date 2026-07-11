@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { MovieComment } from "@/db/types";
-import { postMovieComment } from "@/lib/api-client";
+import type { MovieComment, SeriesComment } from "@/db/types";
+import { postMovieComment, postSeriesComment } from "@/lib/api-client";
 import { GifPicker, type SelectedGif } from "@/components/comments/GifPicker";
 import {
   StickerPicker,
@@ -12,20 +12,22 @@ import {
 export type CommentMediaSelection = SelectedGif | SelectedSticker;
 
 interface CommentComposerProps {
-  movieId: string;
+  movieId?: string;
+  seriesId?: string;
   parentId?: string | null;
   placeholder?: string;
   rows?: number;
   submitLabel?: string;
-  onPosted: (comment: MovieComment) => void;
+  onPosted: (comment: MovieComment | SeriesComment) => void;
   onCancel?: () => void;
   compact?: boolean;
 }
 
 export function CommentComposer({
   movieId,
+  seriesId,
   parentId = null,
-  placeholder = "Share your thoughts about this movie...",
+  placeholder = "Share your thoughts...",
   rows = 3,
   submitLabel = "Post comment",
   onPosted,
@@ -49,21 +51,30 @@ export function CommentComposer({
     setError(null);
 
     try {
-      const result = await postMovieComment(
-        movieId,
-        body.trim(),
-        parentId,
-        media
-          ? {
-              type: media.type,
-              url: media.url,
-              previewUrl:
-                media.type === "gif" ? media.previewUrl : media.url,
-              giphyId: media.type === "gif" ? media.giphyId : undefined,
-              label: media.type === "sticker" ? media.label : undefined,
-            }
-          : null
-      );
+      const mediaPayload = media
+        ? {
+            type: media.type,
+            url: media.url,
+            previewUrl:
+              media.type === "gif" ? media.previewUrl : media.url,
+            giphyId: media.type === "gif" ? media.giphyId : undefined,
+            label: media.type === "sticker" ? media.label : undefined,
+          }
+        : null;
+
+      const result = seriesId
+        ? await postSeriesComment(
+            seriesId,
+            body.trim(),
+            parentId,
+            mediaPayload
+          )
+        : await postMovieComment(
+            movieId!,
+            body.trim(),
+            parentId,
+            mediaPayload
+          );
       onPosted(result.comment);
       setBody("");
       setMedia(null);

@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, type RefObject } from "react";
-import { getMe, getWatchProgress, saveWatchProgress } from "@/lib/api-client";
+import { getMe, getWatchProgress, saveWatchProgress, getEpisodeWatchProgress, saveEpisodeWatchProgress } from "@/lib/api-client";
 
 interface UseWatchProgressArgs {
-  movieId: string;
+  movieId?: string;
+  episodeId?: string;
   videoRef: RefObject<HTMLVideoElement | null>;
   autoPlay?: boolean;
 }
@@ -25,6 +26,7 @@ function tryAutoPlay(video: HTMLVideoElement) {
 
 export function useWatchProgress({
   movieId,
+  episodeId,
   videoRef,
   autoPlay = false,
 }: UseWatchProgressArgs) {
@@ -34,20 +36,26 @@ export function useWatchProgress({
   const autoPlayRef = useRef(autoPlay);
   autoPlayRef.current = autoPlay;
 
+  const progressId = episodeId ?? movieId;
+
   const flushProgress = useCallback(async () => {
     const video = videoRef.current;
-    if (!video || !authenticatedRef.current) return;
+    if (!video || !authenticatedRef.current || !progressId) return;
 
     const seconds = Math.floor(video.currentTime);
     if (seconds <= 0 || seconds === lastSavedRef.current) return;
 
     try {
-      await saveWatchProgress(movieId, seconds);
+      if (episodeId) {
+        await saveEpisodeWatchProgress(episodeId, seconds);
+      } else if (movieId) {
+        await saveWatchProgress(movieId, seconds);
+      }
       lastSavedRef.current = seconds;
     } catch {
       // Ignore save failures to keep playback smooth.
     }
-  }, [movieId, videoRef]);
+  }, [movieId, episodeId, progressId, videoRef]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -68,7 +76,11 @@ export function useWatchProgress({
       if (me?.user) {
         authenticatedRef.current = true;
         try {
-          const result = await getWatchProgress(movieId);
+          const result = episodeId
+            ? await getEpisodeWatchProgress(episodeId)
+            : movieId
+              ? await getWatchProgress(movieId)
+              : { progress: null };
           if (result.progress && result.progress.progress_seconds > 0) {
             const resumeAt = result.progress.progress_seconds;
             const seekOnce = () => {
@@ -98,7 +110,7 @@ export function useWatchProgress({
     return () => {
       mounted = false;
     };
-  }, [movieId, videoRef]);
+  }, [movieId, episodeId, videoRef]);
 
   useEffect(() => {
     const video = videoRef.current;

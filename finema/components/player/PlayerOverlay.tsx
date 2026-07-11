@@ -6,6 +6,7 @@ import type { MovieDetail } from "@/db/types";
 
 interface PlayerOverlayProps {
   movie: MovieDetail;
+  backHref?: string;
   isVisible: boolean;
   isLoading: boolean;
   error: string | null;
@@ -15,6 +16,7 @@ interface PlayerOverlayProps {
 
 export function PlayerOverlay({
   movie,
+  backHref,
   isVisible,
   isLoading,
   error,
@@ -33,9 +35,9 @@ export function PlayerOverlay({
       >
         <div className="pointer-events-auto flex items-center justify-between gap-3">
           <Link
-            href={`/movies/${movie.id}`}
+            href={backHref ?? `/movies/${movie.id}`}
             className="inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] -ml-2 px-2 text-sm md:text-base text-white/90 hover:text-white transition-colors shrink-0 touch-manipulation"
-            aria-label="Back to movie details"
+            aria-label="Back to details"
           >
             <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />

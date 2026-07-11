@@ -91,6 +91,73 @@ export interface UserCommentItem {
 
 export interface AdminMovie extends MovieDetail {}
 
+export interface Series {
+  id: string;
+  title: string;
+  description: string | null;
+  release_year: number | null;
+  poster_url: string | null;
+  backdrop_url: string | null;
+  match_score: number | null;
+  genres: string[];
+  avg_rating?: number | null;
+  rating_count?: number;
+  episode_count?: number;
+}
+
+export interface Episode {
+  id: string;
+  series_id: string;
+  season_number: number;
+  episode_number: number;
+  title: string;
+  description: string | null;
+  duration_seconds: number;
+  thumbnail_url: string | null;
+  hls_playlist_url?: string | null;
+  quality_label?: string | null;
+}
+
+export interface SeriesDetail extends Series {
+  episodes: Episode[];
+}
+
+export interface AdminSeries extends Series {}
+
+export interface SeriesWatchlistItem extends Series {
+  added_at: string;
+}
+
+export interface SeriesComment {
+  id: string;
+  series_id: string;
+  user_id: string;
+  parent_id: string | null;
+  body: string;
+  media_type: CommentMediaType | null;
+  media_url: string | null;
+  created_at: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  user_rating: number | null;
+  replies?: SeriesComment[];
+}
+
+export interface EpisodeDetail extends Episode {
+  hls_playlist_url: string | null;
+  quality_label: string | null;
+  series_title: string;
+}
+
+export interface EpisodeWatchProgress {
+  id: string;
+  user_id: string;
+  episode_id: string;
+  progress_seconds: number;
+  completed: boolean;
+  last_watched_at: string;
+}
+
 export interface Genre {
   id: string;
   name: string;

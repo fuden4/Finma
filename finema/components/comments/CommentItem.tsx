@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { CommentMediaType, MovieComment, PublicUser } from "@/db/types";
+import type { CommentMediaType, MovieComment, PublicUser, SeriesComment } from "@/db/types";
 import { UserAvatar } from "@/components/profile/UserAvatar";
 import { StarRatingDisplay } from "@/components/ratings/StarRatingDisplay";
 import { ReplyForm } from "@/components/comments/ReplyForm";
@@ -11,7 +11,8 @@ import { CommentMenu } from "@/components/comments/CommentMenu";
 
 interface CommentItemProps {
   comment: MovieComment;
-  movieId: string;
+  movieId?: string;
+  seriesId?: string;
   user: PublicUser | null;
   currentUserRating?: number | null;
   canInteract: boolean;
@@ -24,7 +25,7 @@ interface CommentItemProps {
     previewUrl?: string;
     label?: string | null;
   }) => Promise<void>;
-  onReplyPosted: (parentId: string, reply: MovieComment) => void;
+  onReplyPosted: (parentId: string, reply: MovieComment | SeriesComment) => void;
   onReport: (commentId: string) => void;
   onRequestDelete?: (commentId: string) => void;
 }
@@ -48,6 +49,7 @@ function CommentBody({
   onReplyPosted,
   onReport,
   movieId,
+  seriesId,
   favoriteMediaUrls,
   onToggleMediaFavorite,
   onRequestDelete,
@@ -60,9 +62,10 @@ function CommentBody({
   parentDisplayName?: string;
   showReplyForm: boolean;
   onToggleReplyForm: () => void;
-  onReplyPosted: (parentId: string, reply: MovieComment) => void;
+  onReplyPosted: (parentId: string, reply: MovieComment | SeriesComment) => void;
   onReport: (commentId: string) => void;
-  movieId: string;
+  movieId?: string;
+  seriesId?: string;
   favoriteMediaUrls?: Set<string>;
   onToggleMediaFavorite?: (item: {
     mediaType: CommentMediaType;
@@ -193,6 +196,7 @@ function CommentBody({
         {showReplyForm && !isReply && (
           <ReplyForm
             movieId={movieId}
+            seriesId={seriesId}
             parentId={comment.id}
             onPosted={(reply) => {
               onReplyPosted(comment.id, reply);
@@ -208,6 +212,7 @@ function CommentBody({
 export function CommentItem({
   comment,
   movieId,
+  seriesId,
   user,
   currentUserRating,
   canInteract,
@@ -243,6 +248,7 @@ export function CommentItem({
           onReplyPosted={onReplyPosted}
           onReport={onReport}
           movieId={movieId}
+          seriesId={seriesId}
           favoriteMediaUrls={favoriteMediaUrls}
           onToggleMediaFavorite={onToggleMediaFavorite}
           onRequestDelete={onRequestDelete}
@@ -271,6 +277,7 @@ export function CommentItem({
             }}
             onReport={onReport}
             movieId={movieId}
+            seriesId={seriesId}
             favoriteMediaUrls={favoriteMediaUrls}
             onToggleMediaFavorite={onToggleMediaFavorite}
             onRequestDelete={onRequestDelete}
@@ -283,6 +290,7 @@ export function CommentItem({
               replies={comment.replies!}
               parentDisplayName={comment.display_name ?? "Anonymous"}
               movieId={movieId}
+              seriesId={seriesId}
               user={user}
               currentUserRating={currentUserRating}
               canInteract={canInteract}
@@ -314,6 +322,7 @@ export function CommentItem({
         }}
         onReport={onReport}
         movieId={movieId}
+        seriesId={seriesId}
         favoriteMediaUrls={favoriteMediaUrls}
         onToggleMediaFavorite={onToggleMediaFavorite}
         onRequestDelete={onRequestDelete}

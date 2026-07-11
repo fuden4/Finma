@@ -1,16 +1,23 @@
 import type {
   AdminMovie,
+  AdminSeries,
   CommentMediaLibrary,
   CommentMediaLibraryItem,
   CommentMediaType,
   CommentReportDetail,
   ContinueWatchingItem,
+  Episode,
+  EpisodeWatchProgress,
   Genre,
   Movie,
   MovieComment,
   PublicUser,
   RatedMovieItem,
   ReportResolveAction,
+  Series,
+  SeriesComment,
+  SeriesDetail,
+  SeriesWatchlistItem,
   UserCommentItem,
   UserUploadedSticker,
   WatchlistItem,
@@ -221,7 +228,10 @@ export async function getWatchHistory(): Promise<{
   return apiFetch("/api/movies/watch-history");
 }
 
-export async function getRecommendations(): Promise<{ movies: Movie[] }> {
+export async function getRecommendations(): Promise<{
+  movies: Movie[];
+  series: Series[];
+}> {
   return apiFetch("/api/movies/recommendations");
 }
 
@@ -394,4 +404,153 @@ export async function resolveReport(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action }),
   });
+}
+
+export async function getSeriesWatchlist(): Promise<{
+  items: SeriesWatchlistItem[];
+}> {
+  return apiFetch("/api/series/watchlist");
+}
+
+export async function getSeriesList(): Promise<{ series: Series[] }> {
+  return apiFetch("/api/series");
+}
+
+export async function getSeries(id: string): Promise<{ series: SeriesDetail }> {
+  return apiFetch(`/api/series/${id}`);
+}
+
+export async function getSeriesComments(
+  seriesId: string
+): Promise<{ comments: SeriesComment[] }> {
+  return apiFetch(`/api/series/${seriesId}/comments`);
+}
+
+export async function postSeriesComment(
+  seriesId: string,
+  body: string,
+  parentId?: string | null,
+  media?: {
+    type: "gif" | "sticker";
+    url: string;
+    previewUrl?: string;
+    giphyId?: string;
+    label?: string;
+  } | null
+): Promise<{ comment: SeriesComment }> {
+  return apiFetch(`/api/series/${seriesId}/comments`, {
+    method: "POST",
+    body: JSON.stringify({
+      body,
+      parent_id: parentId ?? null,
+      media_type: media?.type ?? null,
+      media_url: media?.url ?? null,
+      media_preview_url: media?.previewUrl ?? null,
+      media_giphy_id: media?.giphyId ?? null,
+      media_label: media?.label ?? null,
+    }),
+  });
+}
+
+export async function getSeriesWatchlistStatus(
+  seriesId: string
+): Promise<{ inWatchlist: boolean }> {
+  return apiFetch(`/api/series/${seriesId}/watchlist`);
+}
+
+export async function addSeriesToWatchlist(
+  seriesId: string
+): Promise<{ inWatchlist: boolean }> {
+  return apiFetch(`/api/series/${seriesId}/watchlist`, { method: "POST" });
+}
+
+export async function removeSeriesFromWatchlist(
+  seriesId: string
+): Promise<{ inWatchlist: boolean }> {
+  return apiFetch(`/api/series/${seriesId}/watchlist`, { method: "DELETE" });
+}
+
+export async function getSeriesRating(
+  seriesId: string
+): Promise<MovieRatingResponse> {
+  return apiFetch(`/api/series/${seriesId}/rating`);
+}
+
+export async function rateSeries(
+  seriesId: string,
+  rating: number
+): Promise<MovieRatingResponse> {
+  return apiFetch(`/api/series/${seriesId}/rating`, {
+    method: "PUT",
+    body: JSON.stringify({ rating }),
+  });
+}
+
+export async function removeSeriesRating(
+  seriesId: string
+): Promise<MovieRatingResponse> {
+  return apiFetch(`/api/series/${seriesId}/rating`, { method: "DELETE" });
+}
+
+export async function getEpisodeWatchProgress(
+  episodeId: string
+): Promise<{ progress: EpisodeWatchProgress | null }> {
+  return apiFetch(`/api/watch/episode/${episodeId}/progress`);
+}
+
+export async function saveEpisodeWatchProgress(
+  episodeId: string,
+  progressSeconds: number
+): Promise<{ progress: EpisodeWatchProgress }> {
+  return apiFetch(`/api/watch/episode/${episodeId}/progress`, {
+    method: "PUT",
+    body: JSON.stringify({ progress_seconds: progressSeconds }),
+  });
+}
+
+export async function getAdminSeries(): Promise<{ series: AdminSeries[] }> {
+  return adminFetch("/api/admin/series");
+}
+
+export async function getAdminSeriesById(
+  id: string
+): Promise<{ series: SeriesDetail }> {
+  return adminFetch(`/api/admin/series/${id}`);
+}
+
+export async function createAdminSeries(
+  formData: FormData
+): Promise<{ series: AdminSeries }> {
+  return adminFetch("/api/admin/series", {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export async function updateAdminSeries(
+  id: string,
+  formData: FormData
+): Promise<{ series: AdminSeries }> {
+  return adminFetch(`/api/admin/series/${id}`, {
+    method: "PUT",
+    body: formData,
+  });
+}
+
+export async function deleteAdminSeries(id: string): Promise<{ ok: boolean }> {
+  return adminFetch(`/api/admin/series/${id}`, { method: "DELETE" });
+}
+
+export async function createAdminEpisode(
+  seriesId: string,
+  formData: FormData
+): Promise<{ episode: Episode }> {
+  return adminFetch(`/api/admin/series/${seriesId}/episodes`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export async function deleteAdminEpisode(id: string): Promise<{ ok: boolean }> {
+  return adminFetch(`/api/admin/episodes/${id}`, { method: "DELETE" });
 }
