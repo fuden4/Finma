@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getEpisodeById } from "@/db/queries";
 import { WatchPlayer } from "@/components/player/WatchPlayer";
 import type { MovieDetail } from "@/db/types";
+import { slugifyTitle } from "@/lib/slug";
 
 interface WatchEpisodePageProps {
   params: Promise<{ id: string }>;
@@ -29,6 +30,7 @@ export default async function WatchEpisodePage({ params }: WatchEpisodePageProps
 
   const playable: MovieDetail = {
     id: episode.id,
+    slug: slugifyTitle(episode.title) || episode.id,
     title: `${episode.series_title} · S${episode.season_number}E${episode.episode_number}: ${episode.title}`,
     description: episode.description,
     release_year: null,

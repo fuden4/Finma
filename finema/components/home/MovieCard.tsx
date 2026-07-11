@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import type { Movie, PublicUser } from "@/db/types";
+import { moviePath } from "@/lib/content-paths";
 import { movieGradient } from "@/lib/movie-utils";
 import { isRegularUser } from "@/lib/user-utils";
 import { WatchlistButton } from "@/components/watchlist/WatchlistButton";
@@ -47,7 +48,7 @@ export function MovieCard({
       transition={{ duration: 0.4, delay: index * 0.08 }}
       className={widthClass}
     >
-      <Link href={`/movies/${movie.id}`}>
+      <Link href={moviePath(movie)}>
         <motion.div
           whileHover={{ scale: 1.05, y: -4 }}
           transition={{ duration: 0.3 }}
@@ -109,7 +110,7 @@ export function MovieCard({
         </motion.div>
       </Link>
 
-      <Link href={`/movies/${movie.id}`}>
+      <Link href={moviePath(movie)}>
         <p className="mt-2 text-sm font-medium text-finema-text truncate hover:text-finema-accent transition-colors">
           {movie.title}
         </p>

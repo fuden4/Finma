@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { SearchResultItem } from "@/db/types";
 import { recordSearchSelection } from "@/lib/api-client";
+import { moviePath, songPath } from "@/lib/content-paths";
 import { OPEN_SEARCH_EVENT } from "@/lib/search-events";
 import { isTextInput, SearchModal } from "@/components/search/SearchModal";
 
@@ -27,9 +28,15 @@ export function GlobalSearch() {
       }
 
       setOpen(false);
-      router.push(
-        item.type === "series" ? `/series/${item.id}` : `/movies/${item.id}`
-      );
+      if (item.type === "series") {
+        router.push(`/series/${item.id}`);
+      } else if (item.type === "song") {
+        router.push(songPath(item));
+      } else if (item.type === "poster") {
+        router.push(`/posters?open=${item.id}`);
+      } else {
+        router.push(moviePath(item));
+      }
     },
     [router]
   );

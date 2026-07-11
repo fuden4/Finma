@@ -1,6 +1,9 @@
 import type {
   AdminMovie,
+  AdminPoster,
   AdminSeries,
+  AdminSong,
+  AdminSongBlock,
   CommentMediaLibrary,
   CommentMediaLibraryItem,
   CommentMediaType,
@@ -12,6 +15,9 @@ import type {
   Genre,
   Movie,
   MovieComment,
+  PosterWithStats,
+  Playlist,
+  PlaylistWithSongs,
   PublicUser,
   RatedMovieItem,
   ReportResolveAction,
@@ -19,6 +25,9 @@ import type {
   SeriesComment,
   SeriesDetail,
   SeriesWatchlistItem,
+  SongBlockWithSongs,
+  SongCategory,
+  SongWithStats,
   SearchResultItem,
   UserCommentItem,
   UserUploadedSticker,
@@ -256,7 +265,7 @@ export async function searchMovies(q: string): Promise<{ movies: Movie[] }> {
 
 export interface SearchCatalogParams {
   q?: string;
-  type?: "all" | "movie" | "series";
+  type?: "all" | "movie" | "series" | "song" | "poster";
   year?: number | null;
   minRating?: number | null;
 }
@@ -592,4 +601,287 @@ export async function createAdminEpisode(
 
 export async function deleteAdminEpisode(id: string): Promise<{ ok: boolean }> {
   return adminFetch(`/api/admin/episodes/${id}`, { method: "DELETE" });
+}
+
+export async function getPosters(): Promise<{ posters: PosterWithStats[] }> {
+  return apiFetch("/api/posters");
+}
+
+export async function likePoster(
+  id: string
+): Promise<{ like_count: number; liked_by_me: boolean }> {
+  return apiFetch(`/api/posters/${id}/like`, { method: "POST" });
+}
+
+export async function unlikePoster(
+  id: string
+): Promise<{ like_count: number; liked_by_me: boolean }> {
+  return apiFetch(`/api/posters/${id}/like`, { method: "DELETE" });
+}
+
+export async function getLikedPosters(): Promise<{
+  posters: PosterWithStats[];
+}> {
+  return apiFetch("/api/posters/likes");
+}
+
+export async function getAdminPosters(): Promise<{ posters: AdminPoster[] }> {
+  return adminFetch("/api/admin/posters");
+}
+
+export async function getAdminPoster(
+  id: string
+): Promise<{ poster: AdminPoster }> {
+  return adminFetch(`/api/admin/posters/${id}`);
+}
+
+export async function createAdminPoster(
+  formData: FormData
+): Promise<{ poster: AdminPoster }> {
+  return adminFetch("/api/admin/posters", {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export async function updateAdminPoster(
+  id: string,
+  formData: FormData
+): Promise<{ poster: AdminPoster }> {
+  return adminFetch(`/api/admin/posters/${id}`, {
+    method: "PUT",
+    body: formData,
+  });
+}
+
+export async function deleteAdminPoster(id: string): Promise<{ ok: boolean }> {
+  return adminFetch(`/api/admin/posters/${id}`, { method: "DELETE" });
+}
+
+export async function getSongs(params?: {
+  categoryId?: string;
+  q?: string;
+}): Promise<{ songs: SongWithStats[] }> {
+  const search = new URLSearchParams();
+  if (params?.categoryId) search.set("category_id", params.categoryId);
+  if (params?.q) search.set("q", params.q);
+  const qs = search.toString();
+  return apiFetch(`/api/songs${qs ? `?${qs}` : ""}`);
+}
+
+export async function getSong(id: string): Promise<{ song: SongWithStats }> {
+  return apiFetch(`/api/songs/${id}`);
+}
+
+export async function getSongCategories(): Promise<{
+  categories: SongCategory[];
+}> {
+  return apiFetch("/api/songs/categories");
+}
+
+export async function getSongCategory(
+  id: string
+): Promise<{ category: SongCategory; songs: SongWithStats[] }> {
+  return apiFetch(`/api/songs/categories/${id}`);
+}
+
+export async function getSongBlocks(): Promise<{
+  blocks: SongBlockWithSongs[];
+}> {
+  return apiFetch("/api/songs/blocks");
+}
+
+export async function getSongBlock(
+  id: string
+): Promise<{ block: SongBlockWithSongs }> {
+  return apiFetch(`/api/songs/blocks/${id}`);
+}
+
+export async function likeSong(
+  id: string
+): Promise<{ like_count: number; liked_by_me: boolean }> {
+  return apiFetch(`/api/songs/${id}/like`, { method: "POST" });
+}
+
+export async function unlikeSong(
+  id: string
+): Promise<{ like_count: number; liked_by_me: boolean }> {
+  return apiFetch(`/api/songs/${id}/like`, { method: "DELETE" });
+}
+
+export async function likeSongBlock(
+  id: string
+): Promise<{ like_count: number; liked_by_me: boolean }> {
+  return apiFetch(`/api/songs/blocks/${id}/like`, { method: "POST" });
+}
+
+export async function unlikeSongBlock(
+  id: string
+): Promise<{ like_count: number; liked_by_me: boolean }> {
+  return apiFetch(`/api/songs/blocks/${id}/like`, { method: "DELETE" });
+}
+
+export async function getLikedSongs(): Promise<{
+  songs: SongWithStats[];
+  blocks: SongBlockWithSongs[];
+}> {
+  return apiFetch("/api/songs/likes");
+}
+
+export async function getPlaylists(): Promise<{ playlists: Playlist[] }> {
+  return apiFetch("/api/playlists");
+}
+
+export async function createPlaylist(input: {
+  name: string;
+  description?: string | null;
+}): Promise<{ playlist: Playlist }> {
+  return apiFetch("/api/playlists", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function getPlaylist(
+  id: string
+): Promise<{ playlist: PlaylistWithSongs }> {
+  return apiFetch(`/api/playlists/${id}`);
+}
+
+export async function updatePlaylist(
+  id: string,
+  input: { name: string; description?: string | null }
+): Promise<{ playlist: Playlist }> {
+  return apiFetch(`/api/playlists/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deletePlaylist(id: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/playlists/${id}`, { method: "DELETE" });
+}
+
+export async function addSongToPlaylist(
+  playlistId: string,
+  songId: string
+): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/playlists/${playlistId}/songs`, {
+    method: "POST",
+    body: JSON.stringify({ song_id: songId }),
+  });
+}
+
+export async function removeSongFromPlaylist(
+  playlistId: string,
+  songId: string
+): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/playlists/${playlistId}/songs`, {
+    method: "DELETE",
+    body: JSON.stringify({ song_id: songId }),
+  });
+}
+
+export async function getAdminSongs(): Promise<{ songs: AdminSong[] }> {
+  return adminFetch("/api/admin/songs");
+}
+
+export async function getAdminSong(id: string): Promise<{ song: AdminSong }> {
+  return adminFetch(`/api/admin/songs/${id}`);
+}
+
+export async function createAdminSong(
+  formData: FormData
+): Promise<{ song: AdminSong }> {
+  return adminFetch("/api/admin/songs", { method: "POST", body: formData });
+}
+
+export async function updateAdminSong(
+  id: string,
+  formData: FormData
+): Promise<{ song: AdminSong }> {
+  return adminFetch(`/api/admin/songs/${id}`, {
+    method: "PUT",
+    body: formData,
+  });
+}
+
+export async function deleteAdminSong(id: string): Promise<{ ok: boolean }> {
+  return adminFetch(`/api/admin/songs/${id}`, { method: "DELETE" });
+}
+
+export async function getAdminSongCategories(): Promise<{
+  categories: SongCategory[];
+}> {
+  return adminFetch("/api/admin/song-categories");
+}
+
+export async function createAdminSongCategory(input: {
+  name: string;
+  slug?: string;
+  description?: string | null;
+}): Promise<{ category: SongCategory }> {
+  return adminFetch("/api/admin/song-categories", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateAdminSongCategory(
+  id: string,
+  input: { name: string; slug?: string; description?: string | null }
+): Promise<{ category: SongCategory }> {
+  return adminFetch(`/api/admin/song-categories/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteAdminSongCategory(
+  id: string
+): Promise<{ ok: boolean }> {
+  return adminFetch(`/api/admin/song-categories/${id}`, { method: "DELETE" });
+}
+
+export async function getAdminSongBlocks(): Promise<{
+  blocks: AdminSongBlock[];
+}> {
+  return adminFetch("/api/admin/song-blocks");
+}
+
+export async function createAdminSongBlock(input: {
+  title: string;
+  description?: string | null;
+  layout: "row" | "grid";
+  sort_order?: number;
+  song_ids: string[];
+}): Promise<{ block: SongBlockWithSongs }> {
+  return adminFetch("/api/admin/song-blocks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateAdminSongBlock(
+  id: string,
+  input: {
+    title: string;
+    description?: string | null;
+    layout: "row" | "grid";
+    sort_order?: number;
+    song_ids: string[];
+  }
+): Promise<{ block: SongBlockWithSongs }> {
+  return adminFetch(`/api/admin/song-blocks/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteAdminSongBlock(id: string): Promise<{ ok: boolean }> {
+  return adminFetch(`/api/admin/song-blocks/${id}`, { method: "DELETE" });
 }

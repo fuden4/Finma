@@ -14,8 +14,17 @@ function parseOptionalFloat(value: string | null): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function parseType(value: string | null): "all" | "movie" | "series" {
-  if (value === "movie" || value === "series") return value;
+function parseType(
+  value: string | null
+): "all" | "movie" | "series" | "song" | "poster" {
+  if (
+    value === "movie" ||
+    value === "series" ||
+    value === "song" ||
+    value === "poster"
+  ) {
+    return value;
+  }
   return "all";
 }
 

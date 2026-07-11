@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import type { PublicUser, UserCommentItem } from "@/db/types";
 import { deleteMyComment, getMyComments } from "@/lib/api-client";
+import { moviePath } from "@/lib/content-paths";
 import { Navbar } from "@/components/layout/Navbar";
 import { StarRatingDisplay } from "@/components/ratings/StarRatingDisplay";
 import { CommentMedia } from "@/components/comments/CommentMedia";
@@ -115,7 +116,11 @@ export function MyCommentsContent({ user }: MyCommentsContentProps) {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <Link
-                        href={`/movies/${comment.movie_id}`}
+                        href={moviePath({
+                          id: comment.movie_id,
+                          slug: comment.movie_slug,
+                          title: comment.movie_title,
+                        })}
                         className="font-semibold text-finema-text hover:text-finema-accent transition-colors"
                       >
                         {comment.movie_title}

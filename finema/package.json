@@ -11,6 +11,10 @@
     "db:migrate-comment-media": "tsx db/migrate-comment-media.ts",
     "db:migrate-comment-media-library": "tsx db/migrate-comment-media-library.ts",
     "db:migrate-series": "tsx db/migrate-series.ts",
+    "db:migrate-posters": "tsx db/migrate-posters.ts",
+    "db:migrate-songs": "tsx db/migrate-songs.ts",
+    "db:migrate-song-block-likes": "tsx db/migrate-song-block-likes.ts",
+    "db:migrate-content-slugs": "tsx db/migrate-content-slugs.ts",
     "db:seed": "tsx db/migrate.ts --seed-only"
   },
   "dependencies": {

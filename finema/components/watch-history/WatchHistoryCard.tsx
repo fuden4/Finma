@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { WatchHistoryItem } from "@/db/types";
+import { moviePath } from "@/lib/content-paths";
 import { movieGradient } from "@/lib/movie-utils";
 import { StarRatingDisplay } from "@/components/ratings/StarRatingDisplay";
 
@@ -29,7 +30,7 @@ export function WatchHistoryCard({ item }: WatchHistoryCardProps) {
 
   return (
     <article className="rounded-xl border border-white/10 bg-finema-surface/40 overflow-hidden">
-      <Link href={`/movies/${item.id}`} className="block relative">
+      <Link href={moviePath(item)} className="block relative">
         <div
           className="aspect-[2/3] relative"
           style={{ background: movieGradient(item.title) }}
@@ -61,7 +62,7 @@ export function WatchHistoryCard({ item }: WatchHistoryCardProps) {
 
       <div className="p-4 space-y-3">
         <Link
-          href={`/movies/${item.id}`}
+          href={moviePath(item)}
           className="text-base font-semibold text-finema-text hover:text-finema-accent transition-colors line-clamp-2"
         >
           {item.title}

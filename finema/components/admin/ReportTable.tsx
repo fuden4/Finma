@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { CommentReportDetail, ReportResolveAction } from "@/db/types";
 import { resolveReport } from "@/lib/api-client";
+import { moviePath } from "@/lib/content-paths";
 import { CommentMedia } from "@/components/comments/CommentMedia";
 
 interface ReportTableProps {
@@ -81,7 +82,11 @@ export function ReportTable({ reports, onResolved }: ReportTableProps) {
                 </p>
               </div>
               <Link
-                href={`/movies/${report.movie_id}`}
+                href={moviePath({
+                  id: report.movie_id,
+                  slug: report.movie_slug,
+                  title: report.movie_title,
+                })}
                 className="text-sm text-finema-accent hover:underline"
               >
                 {report.movie_title}

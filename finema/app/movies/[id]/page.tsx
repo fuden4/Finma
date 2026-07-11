@@ -1,8 +1,18 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { findUserById, getMovieById, getUserMovieRating, getWatchlistMovieIds, isInWatchlist, listMovies, recordMovieView } from "@/db/queries";
+import {
+  findUserById,
+  getMovieById,
+  getUserMovieRating,
+  getWatchlistMovieIds,
+  isInWatchlist,
+  listMovies,
+  recordMovieView,
+} from "@/db/queries";
 import { MovieDetailContent } from "@/components/movies/MovieDetailContent";
 import { getSession } from "@/lib/session";
+import { moviePath } from "@/lib/content-paths";
+import { isUuid } from "@/lib/slug";
 
 interface MoviePageProps {
   params: Promise<{ id: string }>;
@@ -39,28 +49,33 @@ export async function generateMetadata({
 export default async function MoviePage({ params }: MoviePageProps) {
   const { id } = await params;
   const session = await getSession();
-  const [movie, allMovies, user, inWatchlist, watchlistIds, userRating] =
-    await Promise.all([
-    getMovieById(id),
-    listMovies(),
-    session.userId ? findUserById(session.userId) : Promise.resolve(null),
-    session.userId
-      ? isInWatchlist(session.userId, id)
-      : Promise.resolve(false),
-    session.userId
-      ? getWatchlistMovieIds(session.userId)
-      : Promise.resolve([]),
-    session.userId
-      ? getUserMovieRating(session.userId, id)
-      : Promise.resolve(null),
-  ]);
+  const movie = await getMovieById(id);
 
   if (!movie) {
     notFound();
   }
 
+  if (isUuid(id)) {
+    redirect(moviePath(movie));
+  }
+
+  const [allMovies, user, inWatchlist, watchlistIds, userRating] =
+    await Promise.all([
+      listMovies(),
+      session.userId ? findUserById(session.userId) : Promise.resolve(null),
+      session.userId
+        ? isInWatchlist(session.userId, movie.id)
+        : Promise.resolve(false),
+      session.userId
+        ? getWatchlistMovieIds(session.userId)
+        : Promise.resolve([]),
+      session.userId
+        ? getUserMovieRating(session.userId, movie.id)
+        : Promise.resolve(null),
+    ]);
+
   if (user) {
-    await recordMovieView(user.id, id);
+    await recordMovieView(user.id, movie.id);
   }
 
   const recommendations = getRecommendations(movie.id, movie.genres, allMovies);

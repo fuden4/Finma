@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { PublicUser, RatedMovieItem } from "@/db/types";
 import { getRatedMovies } from "@/lib/api-client";
+import { moviePath } from "@/lib/content-paths";
 import { movieGradient } from "@/lib/movie-utils";
 import { Navbar } from "@/components/layout/Navbar";
 import { StarRatingDisplay } from "./StarRatingDisplay";
@@ -103,7 +104,7 @@ export function RatedMoviesContent({ user }: RatedMoviesContentProps) {
                   transition={{ duration: 0.3, delay: index * 0.03 }}
                   className="rounded-xl border border-white/10 bg-finema-surface/40 overflow-hidden"
                 >
-                  <Link href={`/movies/${movie.id}`} className="block">
+                  <Link href={moviePath(movie)} className="block">
                     <div
                       className="aspect-[2/3] relative"
                       style={{ background: movieGradient(movie.title) }}
@@ -120,7 +121,7 @@ export function RatedMoviesContent({ user }: RatedMoviesContentProps) {
                   </Link>
                   <div className="p-4 space-y-3">
                     <Link
-                      href={`/movies/${movie.id}`}
+                      href={moviePath(movie)}
                       className="text-base font-semibold text-finema-text hover:text-finema-accent transition-colors line-clamp-2"
                     >
                       {movie.title}

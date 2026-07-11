@@ -1,7 +1,9 @@
 import { getPool } from "./pool";
+import { listSongs, searchSongs } from "./song-queries";
 import type { PoolClient } from "pg";
 import type {
   AdminMovie,
+  AdminPoster,
   AccountStatus,
   AdminSeries,
   CommentMediaLibrary,
@@ -18,6 +20,8 @@ import type {
   MovieComment,
   MovieDetail,
   MovieRatingStats,
+  Poster,
+  PosterWithStats,
   PublicUser,
   RatedMovieItem,
   ReportResolveAction,
@@ -33,6 +37,30 @@ import type {
   WatchHistoryItem,
   WatchProgress,
 } from "./types";
+import { uniqueSlug } from "@/lib/slug";
+
+async function reserveMovieSlug(
+  client: PoolClient,
+  title: string,
+  excludeId?: string
+): Promise<string> {
+  const base = uniqueSlug(title, new Set());
+  let candidate = base;
+  let suffix = 2;
+  while (true) {
+    const result = await client.query(
+      `SELECT 1 FROM movies
+       WHERE slug = $1 AND ($2::uuid IS NULL OR id <> $2)
+       LIMIT 1`,
+      [candidate, excludeId ?? null]
+    );
+    if (result.rows.length === 0) {
+      return candidate;
+    }
+    candidate = `${base}-${suffix}`;
+    suffix += 1;
+  }
+}
 
 function toPublicUser(row: {
   id: string;
@@ -54,6 +82,7 @@ function toPublicUser(row: {
 
 function toMovie(row: {
   id: string;
+  slug: string;
   title: string;
   description: string | null;
   release_year: number | null;
@@ -67,6 +96,7 @@ function toMovie(row: {
 }): Movie {
   return {
     id: row.id,
+    slug: row.slug,
     title: row.title,
     description: row.description,
     release_year: row.release_year,
@@ -231,6 +261,7 @@ export async function listMovies(): Promise<Movie[]> {
   const result = await pool.query(
     `SELECT
        m.id,
+       m.slug,
        m.title,
        m.description,
        m.release_year,
@@ -262,6 +293,7 @@ export async function searchMoviesByTitle(
   const result = await pool.query(
     `SELECT
        m.id,
+       m.slug,
        m.title,
        m.description,
        m.release_year,
@@ -287,10 +319,53 @@ export async function searchMoviesByTitle(
 
 export interface CatalogSearchFilters {
   query: string;
-  type?: "all" | "movie" | "series";
+  type?: "all" | "movie" | "series" | "song" | "poster";
   year?: number | null;
   minRating?: number | null;
   limit?: number;
+}
+
+export async function searchPostersByTitle(
+  query: string,
+  limit = 20
+): Promise<PosterWithStats[]> {
+  const pool = getPool();
+  const trimmed = query.trim();
+  const params: unknown[] = [];
+  let where = "";
+
+  if (trimmed) {
+    params.push(`%${trimmed}%`);
+    where = `WHERE (p.title ILIKE $1 OR COALESCE(p.description, '') ILIKE $1)`;
+  }
+
+  params.push(limit);
+  const limitParam = `$${params.length}`;
+
+  const result = await pool.query(
+    `SELECT
+       p.id,
+       p.title,
+       p.description,
+       p.image_url,
+       p.created_at,
+       p.updated_at,
+       COUNT(pl.user_id)::int AS like_count,
+       FALSE AS liked_by_me
+     FROM posters p
+     LEFT JOIN poster_likes pl ON pl.poster_id = p.id
+     ${where}
+     GROUP BY p.id
+     ORDER BY p.created_at DESC
+     LIMIT ${limitParam}`,
+    params
+  );
+
+  return result.rows.map((row) => ({
+    ...toPoster(row),
+    like_count: row.like_count,
+    liked_by_me: row.liked_by_me,
+  }));
 }
 
 export async function searchCatalog(
@@ -305,15 +380,16 @@ export async function searchCatalog(
   const hasQuery = trimmed.length > 0;
   const hasYear = year !== null;
   const hasRating = minRating !== null;
+  const hasMediaTypeOnly = type === "song" || type === "poster";
 
-  if (!hasQuery && !hasYear && !hasRating) {
+  if (!hasQuery && !hasYear && !hasRating && !hasMediaTypeOnly) {
     return [];
   }
 
   const pool = getPool();
   const results: SearchResultItem[] = [];
 
-  if (type === "all" || type === "movie") {
+  if ((type === "all" || type === "movie") && (hasQuery || hasYear || hasRating)) {
     const params: unknown[] = [];
     const conditions: string[] = [];
 
@@ -336,6 +412,7 @@ export async function searchCatalog(
     const movieResult = await pool.query(
       `SELECT
          m.id,
+         m.slug,
          m.title,
          m.description,
          m.release_year,
@@ -359,6 +436,7 @@ export async function searchCatalog(
       ...movieResult.rows.map((row) => ({
         type: "movie" as const,
         id: row.id as string,
+        slug: row.slug as string,
         title: row.title as string,
         description: row.description as string | null,
         release_year:
@@ -374,7 +452,7 @@ export async function searchCatalog(
     );
   }
 
-  if (type === "all" || type === "series") {
+  if ((type === "all" || type === "series") && (hasQuery || hasYear || hasRating)) {
     const params: unknown[] = [];
     const conditions: string[] = [];
 
@@ -438,6 +516,51 @@ export async function searchCatalog(
     );
   }
 
+  if (type === "song" || (type === "all" && hasQuery)) {
+    const songs = hasQuery
+      ? await searchSongs(trimmed, undefined)
+      : await listSongs(undefined, { limit });
+    results.push(
+      ...songs.slice(0, limit).map((song) => ({
+        type: "song" as const,
+        id: song.id,
+        slug: song.slug,
+        title: song.title,
+        description: song.description,
+        release_year: null,
+        poster_url: song.cover_url,
+        match_score: null,
+        genres: song.category_name ? [song.category_name] : [],
+        avg_rating: null,
+        rating_count: 0,
+        artist: song.artist,
+        like_count: song.like_count,
+      }))
+    );
+  }
+
+  if (type === "poster" || (type === "all" && hasQuery)) {
+    const posters = await searchPostersByTitle(
+      type === "poster" && !hasQuery ? "" : trimmed,
+      limit
+    );
+    results.push(
+      ...posters.map((poster) => ({
+        type: "poster" as const,
+        id: poster.id,
+        title: poster.title,
+        description: poster.description,
+        release_year: null,
+        poster_url: poster.image_url,
+        match_score: null,
+        genres: [],
+        avg_rating: null,
+        rating_count: 0,
+        like_count: poster.like_count,
+      }))
+    );
+  }
+
   return results
     .sort((a, b) => a.title.localeCompare(b.title))
     .slice(0, limit);
@@ -448,6 +571,7 @@ export async function listAdminMovies(): Promise<AdminMovie[]> {
   const result = await pool.query(
     `SELECT
        m.id,
+       m.slug,
        m.title,
        m.description,
        m.release_year,
@@ -477,6 +601,7 @@ export async function getMovieById(id: string): Promise<MovieDetail | null> {
   const result = await pool.query(
     `SELECT
        m.id,
+       m.slug,
        m.title,
        m.description,
        m.release_year,
@@ -494,7 +619,7 @@ export async function getMovieById(id: string): Promise<MovieDetail | null> {
      LEFT JOIN movie_genres mg ON mg.movie_id = m.id
      LEFT JOIN genres g ON g.id = mg.genre_id
      LEFT JOIN movie_streams ms ON ms.movie_id = m.id
-     WHERE m.id = $1
+     WHERE m.id::text = $1 OR m.slug = $1
      GROUP BY m.id, ms.hls_playlist_url, ms.quality_label, mr.avg_rating, mr.rating_count`,
     [id]
   );
@@ -514,6 +639,7 @@ export async function getContinueWatching(
   const result = await pool.query(
     `SELECT
        m.id,
+       m.slug,
        m.title,
        m.description,
        m.release_year,
@@ -531,6 +657,7 @@ export async function getContinueWatching(
   );
   return result.rows.map((row) => ({
     id: row.id,
+    slug: row.slug,
     title: row.title,
     description: row.description,
     release_year: row.release_year,
@@ -550,6 +677,7 @@ export async function getWatchHistory(
   const result = await pool.query(
     `SELECT
        m.id,
+       m.slug,
        m.title,
        m.description,
        m.release_year,
@@ -653,6 +781,7 @@ export async function getWatchlist(userId: string): Promise<WatchlistItem[]> {
   const result = await pool.query(
     `SELECT
        m.id,
+       m.slug,
        m.title,
        m.description,
        m.release_year,
@@ -789,6 +918,7 @@ export async function getRatedMovies(
   const result = await pool.query(
     `SELECT
        m.id,
+       m.slug,
        m.title,
        m.description,
        m.release_year,
@@ -1103,12 +1233,14 @@ export async function createMovieWithStream(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    const slug = await reserveMovieSlug(client, input.title);
     const movieResult = await client.query(
-      `INSERT INTO movies (title, description, release_year, duration_seconds, poster_url, backdrop_url, match_score)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO movies (title, slug, description, release_year, duration_seconds, poster_url, backdrop_url, match_score)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id`,
       [
         input.title,
+        slug,
         input.description,
         input.release_year,
         input.duration_seconds,
@@ -1166,20 +1298,23 @@ export async function updateMovieWithStream(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    const slug = await reserveMovieSlug(client, input.title, movieId);
     const updated = await client.query(
       `UPDATE movies SET
          title = $2,
-         description = $3,
-         release_year = $4,
-         duration_seconds = $5,
-         poster_url = $6,
-         backdrop_url = $7,
-         match_score = $8
+         slug = $3,
+         description = $4,
+         release_year = $5,
+         duration_seconds = $6,
+         poster_url = $7,
+         backdrop_url = $8,
+         match_score = $9
        WHERE id = $1
        RETURNING id`,
       [
         movieId,
         input.title,
+        slug,
         input.description,
         input.release_year,
         input.duration_seconds,
@@ -1344,6 +1479,7 @@ export async function listCommentsByUserId(
     `SELECT
        mc.id,
        mc.movie_id,
+       m.slug AS movie_slug,
        m.title AS movie_title,
        m.poster_url AS movie_poster_url,
        mc.body,
@@ -1362,6 +1498,7 @@ export async function listCommentsByUserId(
   return result.rows.map((row) => ({
     id: row.id,
     movie_id: row.movie_id,
+    movie_slug: row.movie_slug,
     movie_title: row.movie_title,
     movie_poster_url: row.movie_poster_url,
     body: row.body,
@@ -1515,6 +1652,7 @@ export async function listPendingReports(): Promise<CommentReportDetail[]> {
        reporter.display_name AS reporter_name,
        reporter.email AS reporter_email,
        m.id AS movie_id,
+       m.slug AS movie_slug,
        m.title AS movie_title
      FROM comment_reports cr
      JOIN movie_comments mc ON mc.id = cr.comment_id
@@ -1541,6 +1679,7 @@ export async function listPendingReports(): Promise<CommentReportDetail[]> {
     reporter_name: row.reporter_name,
     reporter_email: row.reporter_email,
     movie_id: row.movie_id,
+    movie_slug: row.movie_slug,
     movie_title: row.movie_title,
   }));
 }
@@ -2568,3 +2707,268 @@ export async function saveEpisodeWatchProgress(
     last_watched_at: row.last_watched_at.toISOString(),
   };
 }
+
+function toPoster(row: {
+  id: string;
+  title: string;
+  description: string | null;
+  image_url: string;
+  created_at: Date;
+  updated_at: Date;
+}): Poster {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    image_url: row.image_url,
+    created_at: row.created_at.toISOString(),
+    updated_at: row.updated_at.toISOString(),
+  };
+}
+
+export async function listPosters(userId?: string): Promise<PosterWithStats[]> {
+  const pool = getPool();
+  const result = await pool.query(
+    `SELECT
+       p.id,
+       p.title,
+       p.description,
+       p.image_url,
+       p.created_at,
+       p.updated_at,
+       COUNT(pl.user_id)::int AS like_count,
+       CASE
+         WHEN $1::uuid IS NULL THEN FALSE
+         ELSE BOOL_OR(pl.user_id = $1::uuid)
+       END AS liked_by_me
+     FROM posters p
+     LEFT JOIN poster_likes pl ON pl.poster_id = p.id
+     GROUP BY p.id
+     ORDER BY p.created_at DESC`,
+    [userId ?? null]
+  );
+
+  return result.rows.map((row) => ({
+    ...toPoster(row),
+    like_count: row.like_count,
+    liked_by_me: row.liked_by_me,
+  }));
+}
+
+export async function listAdminPosters(): Promise<AdminPoster[]> {
+  const pool = getPool();
+  const result = await pool.query(
+    `SELECT
+       p.id,
+       p.title,
+       p.description,
+       p.image_url,
+       p.created_at,
+       p.updated_at,
+       COUNT(pl.user_id)::int AS like_count
+     FROM posters p
+     LEFT JOIN poster_likes pl ON pl.poster_id = p.id
+     GROUP BY p.id
+     ORDER BY p.created_at DESC`
+  );
+
+  return result.rows.map((row) => ({
+    ...toPoster(row),
+    like_count: row.like_count,
+  }));
+}
+
+export async function getPosterById(id: string): Promise<AdminPoster | null> {
+  const pool = getPool();
+  const result = await pool.query(
+    `SELECT
+       p.id,
+       p.title,
+       p.description,
+       p.image_url,
+       p.created_at,
+       p.updated_at,
+       COUNT(pl.user_id)::int AS like_count
+     FROM posters p
+     LEFT JOIN poster_likes pl ON pl.poster_id = p.id
+     WHERE p.id = $1
+     GROUP BY p.id`,
+    [id]
+  );
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    ...toPoster(row),
+    like_count: row.like_count,
+  };
+}
+
+export interface CreatePosterInput {
+  title: string;
+  description: string | null;
+  image_url: string;
+}
+
+export async function createPoster(input: CreatePosterInput): Promise<Poster> {
+  const pool = getPool();
+  const result = await pool.query(
+    `INSERT INTO posters (title, description, image_url)
+     VALUES ($1, $2, $3)
+     RETURNING id, title, description, image_url, created_at, updated_at`,
+    [input.title, input.description, input.image_url]
+  );
+  return toPoster(result.rows[0]);
+}
+
+export interface UpdatePosterInput {
+  title: string;
+  description: string | null;
+  image_url: string;
+}
+
+export async function updatePoster(
+  id: string,
+  input: UpdatePosterInput
+): Promise<Poster | null> {
+  const pool = getPool();
+  const result = await pool.query(
+    `UPDATE posters
+     SET title = $2, description = $3, image_url = $4
+     WHERE id = $1
+     RETURNING id, title, description, image_url, created_at, updated_at`,
+    [id, input.title, input.description, input.image_url]
+  );
+  if (result.rows.length === 0) return null;
+  return toPoster(result.rows[0]);
+}
+
+export async function deletePoster(id: string): Promise<boolean> {
+  const pool = getPool();
+  const result = await pool.query(`DELETE FROM posters WHERE id = $1`, [id]);
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function likePoster(
+  userId: string,
+  posterId: string
+): Promise<{ like_count: number; liked_by_me: boolean }> {
+  const pool = getPool();
+  await pool.query(
+    `INSERT INTO poster_likes (user_id, poster_id)
+     VALUES ($1, $2)
+     ON CONFLICT (user_id, poster_id) DO NOTHING`,
+    [userId, posterId]
+  );
+  const result = await pool.query(
+    `SELECT COUNT(*)::int AS like_count
+     FROM poster_likes
+     WHERE poster_id = $1`,
+    [posterId]
+  );
+  return {
+    like_count: result.rows[0].like_count,
+    liked_by_me: true,
+  };
+}
+
+export async function unlikePoster(
+  userId: string,
+  posterId: string
+): Promise<{ like_count: number; liked_by_me: boolean }> {
+  const pool = getPool();
+  await pool.query(
+    `DELETE FROM poster_likes WHERE user_id = $1 AND poster_id = $2`,
+    [userId, posterId]
+  );
+  const result = await pool.query(
+    `SELECT COUNT(*)::int AS like_count
+     FROM poster_likes
+     WHERE poster_id = $1`,
+    [posterId]
+  );
+  return {
+    like_count: result.rows[0].like_count,
+    liked_by_me: false,
+  };
+}
+
+export async function listLikedPosters(
+  userId: string
+): Promise<PosterWithStats[]> {
+  const pool = getPool();
+  const result = await pool.query(
+    `SELECT
+       p.id,
+       p.title,
+       p.description,
+       p.image_url,
+       p.created_at,
+       p.updated_at,
+       COUNT(pl2.user_id)::int AS like_count,
+       TRUE AS liked_by_me
+     FROM poster_likes pl
+     JOIN posters p ON p.id = pl.poster_id
+     LEFT JOIN poster_likes pl2 ON pl2.poster_id = p.id
+     WHERE pl.user_id = $1
+     GROUP BY p.id, pl.created_at
+     ORDER BY pl.created_at DESC`,
+    [userId]
+  );
+
+  return result.rows.map((row) => ({
+    ...toPoster(row),
+    like_count: row.like_count,
+    liked_by_me: row.liked_by_me,
+  }));
+}
+
+export async function posterExists(posterId: string): Promise<boolean> {
+  const pool = getPool();
+  const result = await pool.query(
+    `SELECT 1 FROM posters WHERE id = $1`,
+    [posterId]
+  );
+  return result.rows.length > 0;
+}
+
+export {
+  addSongToPlaylist,
+  createPlaylist,
+  createSong,
+  createSongBlock,
+  createSongCategory,
+  deletePlaylist,
+  deleteSong,
+  deleteSongBlock,
+  deleteSongCategory,
+  getPlaylistWithSongs,
+  getSongBlockWithSongs,
+  getSongById,
+  getSongCategoryById,
+  likeSong,
+  likeSongBlock,
+  listAdminSongBlocks,
+  listAdminSongs,
+  listLikedSongBlocks,
+  listLikedSongs,
+  listRelatedSongs,
+  listSongBlocks,
+  listSongCategories,
+  listSongs,
+  listSongsByCategory,
+  listUserPlaylists,
+  removeSongFromPlaylist,
+  searchSongs,
+  songBlockExists,
+  songExists,
+  unlikeSong,
+  unlikeSongBlock,
+  updatePlaylist,
+  updateSong,
+  updateSongBlock,
+  updateSongCategory,
+} from "./song-queries";
+export type {
+  CreateSongInput,
+  UpdateSongInput,
+} from "./song-queries";

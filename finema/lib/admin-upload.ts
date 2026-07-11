@@ -293,3 +293,47 @@ export async function saveAndTranscodeVideo(
     await fs.unlink(tempPath).catch(() => undefined);
   }
 }
+
+export interface ParsedPosterForm {
+  title: string;
+  description: string | null;
+  image_url: string | null;
+  image_file: File | null;
+}
+
+export function parsePosterFormData(formData: FormData): ParsedPosterForm {
+  const title = String(formData.get("title") ?? "").trim();
+  if (!title) {
+    throw new HttpError(400, "Title is required");
+  }
+
+  const imageEntry = formData.get("image_file");
+  const image_file =
+    imageEntry instanceof File && imageEntry.size > 0 ? imageEntry : null;
+
+  return {
+    title,
+    description: String(formData.get("description") ?? "").trim() || null,
+    image_url: String(formData.get("image_url") ?? "").trim() || null,
+    image_file,
+  };
+}
+
+export async function resolvePosterImageUrl(
+  parsed: ParsedPosterForm,
+  title: string
+): Promise<string> {
+  if (parsed.image_file) {
+    const slug = slugifyTitle(title) || "poster";
+    return saveImageFile(parsed.image_file, {
+      directory: "images/posters",
+      filenamePrefix: slug,
+    });
+  }
+
+  if (parsed.image_url) {
+    return parsed.image_url;
+  }
+
+  throw new HttpError(400, "Image is required");
+}

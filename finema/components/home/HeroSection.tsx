@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { Movie, PublicUser } from "@/db/types";
+import { moviePath } from "@/lib/content-paths";
 import { movieGradient } from "@/lib/movie-utils";
 import { WatchlistButton } from "@/components/watchlist/WatchlistButton";
 import { StarRatingDisplay } from "@/components/ratings/StarRatingDisplay";
@@ -143,7 +144,7 @@ function HeroSlide({
               onChange={onWatchlistChange}
             />
             <Link
-              href={`/movies/${movie.id}`}
+              href={moviePath(movie)}
               className="px-4 sm:px-6 py-2.5 rounded bg-white/20 text-white text-sm sm:text-base font-semibold hover:bg-white/30 transition-colors backdrop-blur-sm touch-manipulation"
             >
               More Info

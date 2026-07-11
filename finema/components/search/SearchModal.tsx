@@ -19,6 +19,8 @@ const TYPE_OPTIONS: { id: TypeFilter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "movie", label: "Movies" },
   { id: "series", label: "Series" },
+  { id: "song", label: "Songs" },
+  { id: "poster", label: "Posters" },
 ];
 
 const RATING_OPTIONS: { value: number | null; label: string }[] = [
@@ -59,8 +61,15 @@ export function SearchModal({ open, onClose, onSelect }: SearchModalProps) {
   const hasAppliedFilters =
     typeFilter !== "all" || parsedYear !== null || minRating !== null;
 
+  const showMovieSeriesFilters =
+    typeFilter === "all" || typeFilter === "movie" || typeFilter === "series";
+
   const hasActiveFilters =
-    query.trim().length > 0 || parsedYear !== null || minRating !== null;
+    query.trim().length > 0 ||
+    parsedYear !== null ||
+    minRating !== null ||
+    typeFilter === "song" ||
+    typeFilter === "poster";
 
   useEffect(() => {
     if (!open) {
@@ -180,7 +189,7 @@ export function SearchModal({ open, onClose, onSelect }: SearchModalProps) {
                   autoFocus
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search movies and series..."
+                  placeholder="Search movies, series, songs, and posters..."
                   className="min-w-0 flex-1 bg-transparent text-finema-text placeholder:text-finema-muted outline-none"
                 />
                 <button
@@ -260,57 +269,59 @@ export function SearchModal({ open, onClose, onSelect }: SearchModalProps) {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label
-                            htmlFor="search-year-filter"
-                            className="mb-2 block text-xs font-medium text-finema-muted uppercase tracking-wide"
-                          >
-                            Year
-                          </label>
-                          <input
-                            id="search-year-filter"
-                            type="number"
-                            min={1900}
-                            max={2100}
-                            value={yearFilter}
-                            onChange={(event) =>
-                              setYearFilter(event.target.value)
-                            }
-                            placeholder="e.g. 2024"
-                            className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-finema-text placeholder:text-finema-muted focus:outline-none focus:border-finema-accent/50"
-                          />
-                        </div>
+                      {showMovieSeriesFilters && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label
+                              htmlFor="search-year-filter"
+                              className="mb-2 block text-xs font-medium text-finema-muted uppercase tracking-wide"
+                            >
+                              Year
+                            </label>
+                            <input
+                              id="search-year-filter"
+                              type="number"
+                              min={1900}
+                              max={2100}
+                              value={yearFilter}
+                              onChange={(event) =>
+                                setYearFilter(event.target.value)
+                              }
+                              placeholder="e.g. 2024"
+                              className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-finema-text placeholder:text-finema-muted focus:outline-none focus:border-finema-accent/50"
+                            />
+                          </div>
 
-                        <div>
-                          <label
-                            htmlFor="search-rating-filter"
-                            className="mb-2 block text-xs font-medium text-finema-muted uppercase tracking-wide"
-                          >
-                            Rating
-                          </label>
-                          <select
-                            id="search-rating-filter"
-                            value={minRating ?? ""}
-                            onChange={(event) => {
-                              const value = event.target.value;
-                              setMinRating(
-                                value ? Number.parseInt(value, 10) : null
-                              );
-                            }}
-                            className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-finema-text focus:outline-none focus:border-finema-accent/50"
-                          >
-                            {RATING_OPTIONS.map((option) => (
-                              <option
-                                key={option.label}
-                                value={option.value ?? ""}
-                              >
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
+                          <div>
+                            <label
+                              htmlFor="search-rating-filter"
+                              className="mb-2 block text-xs font-medium text-finema-muted uppercase tracking-wide"
+                            >
+                              Rating
+                            </label>
+                            <select
+                              id="search-rating-filter"
+                              value={minRating ?? ""}
+                              onChange={(event) => {
+                                const value = event.target.value;
+                                setMinRating(
+                                  value ? Number.parseInt(value, 10) : null
+                                );
+                              }}
+                              className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-finema-text focus:outline-none focus:border-finema-accent/50"
+                            >
+                              {RATING_OPTIONS.map((option) => (
+                                <option
+                                  key={option.label}
+                                  value={option.value ?? ""}
+                                >
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       {hasAppliedFilters && (
                         <button
@@ -342,7 +353,7 @@ export function SearchModal({ open, onClose, onSelect }: SearchModalProps) {
                 </p>
               ) : !hasActiveFilters ? (
                 <p className="px-3 py-4 text-sm text-finema-muted">
-                  Type a title or use filters to search movies and series.
+                  Type a title or use filters to search.
                 </p>
               ) : results.length === 0 ? (
                 <p className="px-3 py-4 text-sm text-finema-muted">
@@ -378,10 +389,20 @@ export function SearchModal({ open, onClose, onSelect }: SearchModalProps) {
                             className={`absolute top-1 left-1 z-10 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${
                               item.type === "series"
                                 ? "bg-finema-accent/90 text-white"
-                                : "bg-black/70 text-white"
+                                : item.type === "song"
+                                  ? "bg-[#1ed760]/90 text-black"
+                                  : item.type === "poster"
+                                    ? "bg-white/90 text-black"
+                                    : "bg-black/70 text-white"
                             }`}
                           >
-                            {item.type === "series" ? "Series" : "Movie"}
+                            {item.type === "series"
+                              ? "Series"
+                              : item.type === "song"
+                                ? "Song"
+                                : item.type === "poster"
+                                  ? "Poster"
+                                  : "Movie"}
                           </span>
                         </div>
                         <div className="min-w-0 flex-1">
@@ -389,7 +410,18 @@ export function SearchModal({ open, onClose, onSelect }: SearchModalProps) {
                             {item.title}
                           </div>
                           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                            {item.avg_rating != null && item.avg_rating > 0 ? (
+                            {item.type === "song" && item.artist ? (
+                              <span className="text-xs text-finema-muted">
+                                {item.artist}
+                              </span>
+                            ) : item.type === "poster" &&
+                              item.like_count != null &&
+                              item.like_count > 0 ? (
+                              <span className="text-xs text-finema-muted">
+                                {item.like_count}{" "}
+                                {item.like_count === 1 ? "like" : "likes"}
+                              </span>
+                            ) : item.avg_rating != null && item.avg_rating > 0 ? (
                               <StarRatingDisplay
                                 value={item.avg_rating}
                                 count={item.rating_count}
@@ -397,10 +429,13 @@ export function SearchModal({ open, onClose, onSelect }: SearchModalProps) {
                               />
                             ) : (
                               <span className="text-xs text-finema-muted">
-                                No rating
+                                {item.type === "song" || item.type === "poster"
+                                  ? "—"
+                                  : "No rating"}
                               </span>
                             )}
-                            {item.release_year != null && (
+                            {item.release_year != null &&
+                              (item.type === "movie" || item.type === "series") && (
                               <>
                                 <span className="text-xs text-finema-muted">
                                   ·

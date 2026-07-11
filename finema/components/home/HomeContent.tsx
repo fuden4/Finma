@@ -3,7 +3,15 @@
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import type { ContinueWatchingItem, Movie, PublicUser, Series, WatchlistItem } from "@/db/types";
+import type {
+  ContinueWatchingItem,
+  Movie,
+  PosterWithStats,
+  PublicUser,
+  Series,
+  SongWithStats,
+  WatchlistItem,
+} from "@/db/types";
 import { getContinueWatching, getMe, getRecommendations, getWatchlist, getSeriesWatchlist } from "@/lib/api-client";
 import { groupMoviesByGenre } from "@/lib/movie-utils";
 import { isRegularUser } from "@/lib/user-utils";
@@ -13,14 +21,25 @@ import { MovieRow } from "./MovieRow";
 import { ContinueWatchingRow } from "./ContinueWatchingRow";
 import { WatchlistRow } from "./WatchlistRow";
 import { SeriesRow } from "./SeriesRow";
+import { SongRow } from "@/components/songs/SongRow";
+import { PosterRow } from "./PosterRow";
+import { PosterDetailModal } from "@/components/posters/PosterDetailModal";
 
 interface HomeContentProps {
   movies: Movie[];
   series: Series[];
   featured: Movie[];
+  songs: SongWithStats[];
+  posters: PosterWithStats[];
 }
 
-export function HomeContent({ movies, series, featured }: HomeContentProps) {
+export function HomeContent({
+  movies,
+  series,
+  featured,
+  songs,
+  posters: initialPosters,
+}: HomeContentProps) {
   const [user, setUser] = useState<PublicUser | null>(null);
   const [continueItems, setContinueItems] = useState<ContinueWatchingItem[]>(
     []
@@ -30,6 +49,9 @@ export function HomeContent({ movies, series, featured }: HomeContentProps) {
   const [recommendedSeries, setRecommendedSeries] = useState<Series[]>([]);
   const [watchlistIds, setWatchlistIds] = useState<Set<string>>(new Set());
   const [seriesWatchlistIds, setSeriesWatchlistIds] = useState<Set<string>>(new Set());
+  const [posters, setPosters] = useState<PosterWithStats[]>(initialPosters);
+  const [selectedPoster, setSelectedPoster] = useState<PosterWithStats | null>(null);
+  const [posterModalOpen, setPosterModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadAuth = useCallback(async () => {
@@ -69,6 +91,10 @@ export function HomeContent({ movies, series, featured }: HomeContentProps) {
   }, []);
 
   useEffect(() => {
+    setPosters(initialPosters);
+  }, [initialPosters]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadAuth();
     }, 0);
@@ -100,6 +126,30 @@ export function HomeContent({ movies, series, featured }: HomeContentProps) {
     } else {
       setWatchlistItems((prev) => prev.filter((item) => item.id !== movieId));
     }
+  }
+
+  function handlePosterLikeChange(
+    posterId: string,
+    likeCount: number,
+    likedByMe: boolean
+  ) {
+    setPosters((prev) =>
+      prev.map((poster) =>
+        poster.id === posterId
+          ? { ...poster, like_count: likeCount, liked_by_me: likedByMe }
+          : poster
+      )
+    );
+    setSelectedPoster((prev) =>
+      prev?.id === posterId
+        ? { ...prev, like_count: likeCount, liked_by_me: likedByMe }
+        : prev
+    );
+  }
+
+  function openPoster(poster: PosterWithStats) {
+    setSelectedPoster(poster);
+    setPosterModalOpen(true);
   }
 
   const genreMap = groupMoviesByGenre(movies);
@@ -179,6 +229,15 @@ export function HomeContent({ movies, series, featured }: HomeContentProps) {
           />
         )}
 
+        <SongRow title="Songs" songs={songs} seeAllHref="/songs" />
+
+        <PosterRow
+          title="Posters"
+          posters={posters}
+          seeAllHref="/posters"
+          onOpen={openPoster}
+        />
+
         {regularUser && recommended.length > 0 && (
           <MovieRow
             title="Recommended for you"
@@ -223,6 +282,17 @@ export function HomeContent({ movies, series, featured }: HomeContentProps) {
           />
         ))}
       </div>
+
+      <PosterDetailModal
+        poster={selectedPoster}
+        open={posterModalOpen}
+        user={user}
+        onClose={() => {
+          setPosterModalOpen(false);
+          setSelectedPoster(null);
+        }}
+        onLikeChange={handlePosterLikeChange}
+      />
     </div>
   );
 }

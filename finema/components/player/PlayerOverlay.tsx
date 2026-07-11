@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import type { MovieDetail } from "@/db/types";
+import { moviePath } from "@/lib/content-paths";
 
 interface PlayerOverlayProps {
   movie: MovieDetail;
@@ -35,7 +36,7 @@ export function PlayerOverlay({
       >
         <div className="pointer-events-auto flex items-center justify-between gap-3">
           <Link
-            href={backHref ?? `/movies/${movie.id}`}
+            href={backHref ?? moviePath(movie)}
             className="inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] -ml-2 px-2 text-sm md:text-base text-white/90 hover:text-white transition-colors shrink-0 touch-manipulation"
             aria-label="Back to details"
           >

@@ -99,6 +99,9 @@ export function Navbar({ user }: NavbarProps) {
     openSearchModal();
   }
 
+  const navLinkClass =
+    "text-xs sm:text-sm text-finema-muted hover:text-finema-text transition-colors whitespace-nowrap shrink-0 touch-manipulation";
+
   return (
     <>
       <motion.header
@@ -112,7 +115,7 @@ export function Navbar({ user }: NavbarProps) {
         }`}
       >
         <nav className="flex items-center justify-between gap-2 px-3 sm:px-4 md:px-8 py-2.5 sm:py-3 md:py-4 max-w-[1920px] mx-auto">
-          <div className="flex min-w-0 items-center gap-4 md:gap-8">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4 md:gap-8">
             <Link
               href="/"
               className="text-xl sm:text-2xl font-bold tracking-tight shrink-0"
@@ -120,12 +123,17 @@ export function Navbar({ user }: NavbarProps) {
               <span className="text-finema-accent">F</span>
               <span className="text-finema-text">inema</span>
             </Link>
-            <Link
-              href="/"
-              className="hidden md:block text-sm text-finema-muted hover:text-finema-text transition-colors"
-            >
-              Browse
-            </Link>
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3 md:gap-6 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <Link href="/" className={navLinkClass}>
+                Browse
+              </Link>
+              <Link href="/songs" className={navLinkClass}>
+                Songs
+              </Link>
+              <Link href="/posters" className={navLinkClass}>
+                Posters
+              </Link>
+            </div>
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2 md:gap-4 shrink-0">
@@ -225,13 +233,6 @@ export function Navbar({ user }: NavbarProps) {
               </div>
 
               <div className="flex flex-col gap-2 p-4">
-                <Link
-                  href="/"
-                  onClick={closeMenu}
-                  className="rounded-lg px-4 py-3 text-base text-finema-text hover:bg-white/5 transition-colors touch-manipulation"
-                >
-                  Browse
-                </Link>
                 <button
                   type="button"
                   onClick={handleSearch}

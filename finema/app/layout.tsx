@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { MusicPlayerShell } from "@/components/songs/MusicPlayerShell";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -41,8 +42,10 @@ export default function RootLayout({
         suppressHydrationWarning
         className="min-h-full flex flex-col bg-finema-bg text-finema-text"
       >
-        <div className="flex-1">{children}</div>
-        <SiteFooter />
+        <MusicPlayerShell>
+          <div className="flex-1">{children}</div>
+          <SiteFooter />
+        </MusicPlayerShell>
         <GlobalSearch />
       </body>
     </html>

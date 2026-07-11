@@ -7,6 +7,10 @@ const links = [
   { href: "/admin", label: "Dashboard", exact: true },
   { href: "/admin/movies", label: "Movies", exact: false },
   { href: "/admin/series", label: "Series", exact: false },
+  { href: "/admin/songs", label: "Songs", exact: false },
+  { href: "/admin/song-categories", label: "Song Categories", exact: false },
+  { href: "/admin/song-blocks", label: "Song Blocks", exact: false },
+  { href: "/admin/posters", label: "Posters", exact: false },
   { href: "/admin/reports", label: "Reports", exact: false },
 ];
 

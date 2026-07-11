@@ -74,12 +74,14 @@ export interface CommentReportDetail {
   reporter_name: string | null;
   reporter_email: string;
   movie_id: string;
+  movie_slug: string;
   movie_title: string;
 }
 
 export interface UserCommentItem {
   id: string;
   movie_id: string;
+  movie_slug: string;
   movie_title: string;
   movie_poster_url: string | null;
   body: string;
@@ -165,6 +167,7 @@ export interface Genre {
 
 export interface Movie {
   id: string;
+  slug: string;
   title: string;
   description: string | null;
   release_year: number | null;
@@ -209,6 +212,7 @@ export interface RatedMovieItem extends Movie {
 
 export interface ContinueWatchingItem {
   id: string;
+  slug: string;
   title: string;
   description: string | null;
   release_year: number | null;
@@ -222,6 +226,7 @@ export interface ContinueWatchingItem {
 
 export interface WatchHistoryItem {
   id: string;
+  slug: string;
   title: string;
   description: string | null;
   release_year: number | null;
@@ -256,11 +261,101 @@ export interface EpisodeWatchHistoryItem {
   last_watched_at: string;
 }
 
-export type SearchContentType = "movie" | "series";
+export interface Poster {
+  id: string;
+  title: string;
+  description: string | null;
+  image_url: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PosterWithStats extends Poster {
+  like_count: number;
+  liked_by_me: boolean;
+}
+
+export interface AdminPoster extends Poster {
+  like_count: number;
+}
+
+export type SongBlockLayout = "row" | "grid";
+
+export interface SongCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  created_at: string;
+}
+
+export interface Song {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  artist: string | null;
+  cover_url: string;
+  audio_url: string;
+  download_url: string;
+  duration_seconds: number;
+  category_id: string | null;
+  category_name?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SongWithStats extends Song {
+  like_count: number;
+  liked_by_me: boolean;
+}
+
+export interface AdminSong extends Song {
+  like_count: number;
+}
+
+export interface SongBlock {
+  id: string;
+  title: string;
+  description: string | null;
+  layout: SongBlockLayout;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface SongBlockWithSongs extends SongBlock {
+  songs: SongWithStats[];
+  song_count?: number;
+  like_count: number;
+  liked_by_me: boolean;
+}
+
+export interface AdminSongBlock extends SongBlock {
+  song_count: number;
+  song_ids: string[];
+  preview_songs: Array<Pick<Song, "id" | "cover_url" | "title">>;
+}
+
+export interface Playlist {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  song_count?: number;
+}
+
+export interface PlaylistWithSongs extends Playlist {
+  songs: Song[];
+}
+
+export type SearchContentType = "movie" | "series" | "song" | "poster";
 
 export interface SearchResultItem {
   type: SearchContentType;
   id: string;
+  slug?: string;
   title: string;
   description: string | null;
   release_year: number | null;
@@ -270,4 +365,6 @@ export interface SearchResultItem {
   avg_rating: number | null;
   rating_count: number;
   episode_count?: number;
+  artist?: string | null;
+  like_count?: number;
 }

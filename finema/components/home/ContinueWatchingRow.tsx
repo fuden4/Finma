@@ -27,6 +27,7 @@ export function ContinueWatchingRow({ items }: ContinueWatchingRowProps) {
             key={item.id}
             movie={{
               id: item.id,
+              slug: item.slug,
               title: item.title,
               description: item.description,
               release_year: item.release_year,
