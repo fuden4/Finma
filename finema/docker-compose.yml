@@ -28,12 +28,7 @@ services:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/sandbox_db
       SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env or .env.local}
       GIPHY_API_KEY: ${GIPHY_API_KEY:-}
-      NODE_ENV: development
-      WATCHPACK_POLLING: "true"
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/.next
+      NODE_ENV: production
     depends_on:
       db:
         condition: service_healthy
