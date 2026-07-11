@@ -19,6 +19,8 @@ export const metadata: Metadata = {
   description: "Stream movies with cinematic quality",
 };
 
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{
