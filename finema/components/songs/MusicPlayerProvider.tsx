@@ -82,6 +82,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const autoplayOnLoadRef = useRef(false);
   const isDraggingRef = useRef(false);
   const loadedTrackIdRef = useRef<string | null>(null);
+  const durationRef = useRef(0);
+  const trackRef = useRef<MusicTrack | null>(null);
 
   const [track, setTrack] = useState<MusicTrack | null>(null);
   const [view, setView] = useState<PlayerView>(null);
@@ -96,6 +98,14 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     isDraggingRef.current = isDragging;
   }, [isDragging]);
+
+  useEffect(() => {
+    durationRef.current = duration;
+  }, [duration]);
+
+  useEffect(() => {
+    trackRef.current = track;
+  }, [track]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -130,6 +140,11 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         setDuration(track.duration_seconds);
       }
     };
+    const onDurationChange = () => {
+      if (Number.isFinite(audio.duration) && audio.duration > 0) {
+        setDuration(audio.duration);
+      }
+    };
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
     const onEnded = () => {
@@ -144,6 +159,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
 
     audio.addEventListener("timeupdate", onTimeUpdate);
     audio.addEventListener("loadedmetadata", onLoadedMetadata);
+    audio.addEventListener("durationchange", onDurationChange);
     audio.addEventListener("play", onPlay);
     audio.addEventListener("pause", onPause);
     audio.addEventListener("ended", onEnded);
@@ -151,6 +167,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     return () => {
       audio.removeEventListener("timeupdate", onTimeUpdate);
       audio.removeEventListener("loadedmetadata", onLoadedMetadata);
+      audio.removeEventListener("durationchange", onDurationChange);
       audio.removeEventListener("play", onPlay);
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("ended", onEnded);
@@ -199,24 +216,39 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [track]);
 
+  const getEffectiveDuration = useCallback(() => {
+    const audio = audioRef.current;
+    const stateDuration = durationRef.current;
+    if (stateDuration > 0) return stateDuration;
+    if (audio && Number.isFinite(audio.duration) && audio.duration > 0) {
+      return audio.duration;
+    }
+    const trackDuration = trackRef.current?.duration_seconds ?? 0;
+    return trackDuration > 0 ? trackDuration : 0;
+  }, []);
+
   const seek = useCallback(
     (time: number) => {
       const audio = audioRef.current;
       if (!audio) return;
-      const max = duration > 0 ? duration : audio.duration;
-      audio.currentTime = Math.min(max, Math.max(0, time));
-      setCurrentTime(audio.currentTime);
+      const max = getEffectiveDuration();
+      if (max <= 0) return;
+      const clamped = Math.min(max, Math.max(0, time));
+      audio.currentTime = clamped;
+      setCurrentTime(clamped);
     },
-    [duration]
+    [getEffectiveDuration]
   );
 
   const seekByClientX = useCallback(
     (clientX: number, barWidth: number, barLeft: number) => {
-      if (barWidth <= 0 || duration <= 0) return;
+      if (barWidth <= 0) return;
+      const effectiveDuration = getEffectiveDuration();
+      if (effectiveDuration <= 0) return;
       const ratio = Math.min(1, Math.max(0, (clientX - barLeft) / barWidth));
-      seek(ratio * duration);
+      seek(ratio * effectiveDuration);
     },
-    [duration, seek]
+    [getEffectiveDuration, seek]
   );
 
   const skip = useCallback(

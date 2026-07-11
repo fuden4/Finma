@@ -38,18 +38,28 @@ function SkipIcon({
   direction: "back" | "forward";
 }) {
   return (
-    <span className={`relative inline-flex ${className ?? ""}`}>
-      <svg className="h-full w-full" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-        {direction === "back" ? (
-          <path d="M12.5 3C17.75 3 22 7.25 22 12.5S17.75 22 12.5 22H11v-2h1.5c4.14 0 7.5-3.36 7.5-7.5S15.64 5 11.5 5H11V3h1.5zM2 12l8.5-6v12L2 12zm11 0l8.5-6v12L13 12z" />
-        ) : (
-          <path d="M11.5 3C6.25 3 2 7.25 2 12.5S6.25 22 11.5 22H13v-2h-1.5c-4.14 0-7.5-3.36-7.5-7.5S7.36 5 11.5 5H13V3h-1.5zM22 12l-8.5-6v12L22 12zm-11 0l-8.5-6v12L11 12z" />
-        )}
-      </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[7px] font-bold">
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+    >
+      {direction === "back" ? (
+        <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" />
+      ) : (
+        <path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z" />
+      )}
+      <text
+        x="12"
+        y="16"
+        textAnchor="middle"
+        fontSize="7.5"
+        fontWeight="700"
+        fontFamily="system-ui, sans-serif"
+      >
         10
-      </span>
-    </span>
+      </text>
+    </svg>
   );
 }
 
@@ -86,6 +96,7 @@ export function SongPlayer({
   hasNext = false,
 }: SongPlayerProps) {
   const progressRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
   const {
     track,
     isPlaying,
@@ -118,7 +129,7 @@ export function SongPlayer({
     return () => setOnEnded(null);
   }, [hasNext, onNext, setOnEnded]);
 
-  const seek = useCallback(
+  const seekAtClientX = useCallback(
     (clientX: number) => {
       const bar = progressRef.current;
       if (!bar) return;
@@ -128,20 +139,43 @@ export function SongPlayer({
     [seekByClientX]
   );
 
+  const endDrag = useCallback(() => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    setIsDragging(false);
+  }, [setIsDragging]);
+
+  useEffect(() => {
+    function handleWindowPointerUp() {
+      endDrag();
+    }
+    window.addEventListener("pointerup", handleWindowPointerUp);
+    window.addEventListener("pointercancel", handleWindowPointerUp);
+    return () => {
+      window.removeEventListener("pointerup", handleWindowPointerUp);
+      window.removeEventListener("pointercancel", handleWindowPointerUp);
+    };
+  }, [endDrag]);
+
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    e.preventDefault();
+    isDraggingRef.current = true;
     setIsDragging(true);
-    seek(e.clientX);
+    seekAtClientX(e.clientX);
     e.currentTarget.setPointerCapture(e.pointerId);
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    if (!isDragging) return;
-    seek(e.clientX);
+    if (!isDraggingRef.current) return;
+    e.preventDefault();
+    seekAtClientX(e.clientX);
   }
 
   function handlePointerUp(e: React.PointerEvent<HTMLDivElement>) {
-    setIsDragging(false);
-    e.currentTarget.releasePointerCapture(e.pointerId);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    endDrag();
   }
 
   if (!track) return null;
@@ -165,23 +199,26 @@ export function SongPlayer({
           if (e.key === "ArrowRight") skip(5);
           if (e.key === "ArrowLeft") skip(-5);
         }}
-        className="group relative mb-8 h-1.5 cursor-pointer rounded-full bg-white/20"
+        className="group relative mb-8 flex h-4 cursor-pointer touch-none select-none items-center"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       >
-        <motion.div
-          className="absolute inset-y-0 left-0 rounded-full bg-white group-hover:bg-[#1ed760]"
-          style={{ width: `${progress}%` }}
-          layout={false}
-          transition={{ type: "tween", duration: isDragging ? 0 : 0.1 }}
-        />
-        <motion.div
-          className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-white opacity-0 shadow-md transition-opacity group-hover:opacity-100"
-          style={{ left: `calc(${progress}% - 6px)` }}
-          animate={{ scale: isDragging ? 1.2 : 1 }}
-        />
+        <div className="relative h-1.5 w-full rounded-full bg-white/20 group-hover:h-2 transition-[height]">
+          <motion.div
+            className="pointer-events-none absolute inset-y-0 left-0 rounded-full bg-white group-hover:bg-[#1ed760]"
+            style={{ width: `${progress}%` }}
+            layout={false}
+            transition={{ type: "tween", duration: isDragging ? 0 : 0.1 }}
+          />
+          <motion.div
+            className={`pointer-events-none absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-white shadow-md transition-opacity ${
+              isDragging ? "opacity-100 scale-125" : "opacity-0 group-hover:opacity-100"
+            }`}
+            style={{ left: `clamp(0px, calc(${progress}% - 6px), calc(100% - 12px))` }}
+          />
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-1 sm:gap-2">
@@ -224,30 +261,11 @@ export function SongPlayer({
           className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-black shadow-lg shadow-black/40 sm:h-16 sm:w-16"
           aria-label={isPlaying ? "Pause" : "Play"}
         >
-          <AnimatePresence mode="wait" initial={false}>
-            {isPlaying ? (
-              <motion.span
-                key="pause"
-                initial={{ opacity: 0, scale: 0.6 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.6 }}
-                transition={{ duration: 0.15 }}
-              >
-                <PauseIcon className="h-7 w-7 sm:h-8 sm:w-8" />
-              </motion.span>
-            ) : (
-              <motion.span
-                key="play"
-                initial={{ opacity: 0, scale: 0.6 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.6 }}
-                transition={{ duration: 0.15 }}
-                className="ml-0.5"
-              >
-                <PlayIcon className="h-7 w-7 sm:h-8 sm:w-8" />
-              </motion.span>
-            )}
-          </AnimatePresence>
+          {isPlaying ? (
+            <PauseIcon className="h-7 w-7 sm:h-8 sm:w-8" />
+          ) : (
+            <PlayIcon className="ml-0.5 h-7 w-7 sm:h-8 sm:w-8" />
+          )}
         </motion.button>
 
         <button
