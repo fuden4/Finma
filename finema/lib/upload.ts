@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { toUploadPublicUrl } from "@/lib/upload-url";
 
 const IMAGE_MIME_EXT: Record<string, string> = {
   "image/jpeg": ".jpg",
@@ -24,5 +25,5 @@ export async function saveImageFile(
   const filename = `${options.filenamePrefix}-${Date.now()}${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
   await fs.writeFile(path.join(dir, filename), buffer);
-  return `/${options.directory}/${filename}`;
+  return toUploadPublicUrl(options.directory, filename);
 }
