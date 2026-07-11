@@ -124,21 +124,12 @@ export function ProfileSettingsContent({ user: initialUser }: ProfileSettingsCon
 
         <div className="rounded-lg border border-white/10 bg-finema-surface/40 p-6 space-y-6">
           <div className="flex items-center gap-4">
-            {displayAvatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={displayAvatarUrl}
-                alt={user.display_name ?? user.email}
-                className="h-24 w-24 rounded-full object-cover border border-white/10"
-              />
-            ) : (
-              <UserAvatar
-                displayName={user.display_name}
-                email={user.email}
-                avatarUrl={user.avatar_url}
-                size="lg"
-              />
-            )}
+            <UserAvatar
+              displayName={user.display_name}
+              email={user.email}
+              avatarUrl={displayAvatarUrl}
+              size="lg"
+            />
             <div>
               <p className="text-lg font-semibold text-finema-text">
                 {user.display_name ?? "User"}

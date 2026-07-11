@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+
 interface UserAvatarProps {
   displayName: string | null;
   email: string;
@@ -28,14 +32,17 @@ export function UserAvatar({
   size = "sm",
   className = "",
 }: UserAvatarProps) {
+  const [imageFailed, setImageFailed] = useState(false);
   const sizeClass = sizeClasses[size];
+  const showImage = avatarUrl && !imageFailed;
 
-  if (avatarUrl) {
+  if (showImage) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={avatarUrl}
         alt={displayName ?? email}
+        onError={() => setImageFailed(true)}
         className={`rounded-full object-cover border border-white/10 ${sizeClass} ${className}`}
       />
     );
