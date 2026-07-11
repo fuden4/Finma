@@ -11,6 +11,7 @@ import { StarRatingDisplay } from "@/components/ratings/StarRatingDisplay";
 interface SeriesCardProps {
   series: Series;
   index?: number;
+  layout?: "row" | "grid";
   user?: PublicUser | null;
   inWatchlist?: boolean;
   showWatchlistButton?: boolean;
@@ -20,18 +21,24 @@ interface SeriesCardProps {
 export function SeriesCard({
   series,
   index = 0,
+  layout = "row",
   user,
   inWatchlist = false,
   showWatchlistButton = false,
   onWatchlistChange,
 }: SeriesCardProps) {
+  const widthClass =
+    layout === "grid"
+      ? "w-full"
+      : "flex-shrink-0 w-[140px] sm:w-[160px] md:w-[180px]";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
       transition={{ duration: 0.4, delay: index * 0.08 }}
-      className="flex-shrink-0 w-[140px] sm:w-[160px] md:w-[180px]"
+      className={widthClass}
     >
       <Link href={`/series/${series.id}`}>
         <motion.div

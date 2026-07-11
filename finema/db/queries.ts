@@ -11,6 +11,7 @@ import type {
   ContinueWatchingItem,
   Episode,
   EpisodeDetail,
+  EpisodeWatchHistoryItem,
   EpisodeWatchProgress,
   Genre,
   Movie,
@@ -425,6 +426,65 @@ export async function getWatchHistory(
     rating_count: Number(row.rating_count ?? 0),
     progress_seconds: row.progress_seconds,
     completed: row.completed,
+    last_watched_at: row.last_watched_at.toISOString(),
+  }));
+}
+
+export async function getEpisodeWatchHistory(
+  userId: string
+): Promise<EpisodeWatchHistoryItem[]> {
+  const pool = getPool();
+  const result = await pool.query(
+    `SELECT
+       e.id,
+       e.series_id,
+       s.title AS series_title,
+       e.season_number,
+       e.episode_number,
+       e.title,
+       e.description,
+       e.duration_seconds,
+       s.poster_url,
+       e.thumbnail_url,
+       COALESCE(array_agg(DISTINCT g.name ORDER BY g.name) FILTER (WHERE g.name IS NOT NULL), '{}') AS genres,
+       stats.avg_rating,
+       stats.rating_count,
+       ewp.progress_seconds,
+       ewp.completed,
+       ewp.last_watched_at
+     FROM episode_watch_progress ewp
+     JOIN episodes e ON e.id = ewp.episode_id
+     JOIN series s ON s.id = e.series_id
+     LEFT JOIN series_genres sg ON sg.series_id = s.id
+     LEFT JOIN genres g ON g.id = sg.genre_id
+     LEFT JOIN (
+       SELECT series_id,
+              ROUND(AVG(rating)::numeric, 1) AS avg_rating,
+              COUNT(*)::int AS rating_count
+       FROM series_ratings
+       GROUP BY series_id
+     ) stats ON stats.series_id = s.id
+     WHERE ewp.user_id = $1
+     GROUP BY e.id, s.id, s.title, s.poster_url, ewp.progress_seconds, ewp.completed, ewp.last_watched_at, stats.avg_rating, stats.rating_count
+     ORDER BY ewp.last_watched_at DESC`,
+    [userId]
+  );
+  return result.rows.map((row) => ({
+    id: row.id as string,
+    series_id: row.series_id as string,
+    series_title: row.series_title as string,
+    season_number: Number(row.season_number),
+    episode_number: Number(row.episode_number),
+    title: row.title as string,
+    description: row.description as string | null,
+    duration_seconds: Number(row.duration_seconds),
+    poster_url: row.poster_url as string | null,
+    thumbnail_url: row.thumbnail_url as string | null,
+    genres: (row.genres as string[] | null) ?? [],
+    avg_rating: row.avg_rating !== null ? Number(row.avg_rating) : null,
+    rating_count: Number(row.rating_count ?? 0),
+    progress_seconds: Number(row.progress_seconds),
+    completed: Boolean(row.completed),
     last_watched_at: row.last_watched_at.toISOString(),
   }));
 }

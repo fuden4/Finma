@@ -8,6 +8,7 @@ import type {
   ContinueWatchingItem,
   Episode,
   EpisodeWatchProgress,
+  EpisodeWatchHistoryItem,
   Genre,
   Movie,
   MovieComment,
@@ -226,6 +227,19 @@ export async function getWatchHistory(): Promise<{
   items: WatchHistoryItem[];
 }> {
   return apiFetch("/api/movies/watch-history");
+}
+
+export async function getEpisodeWatchHistory(): Promise<{
+  items: EpisodeWatchHistoryItem[];
+}> {
+  return apiFetch("/api/series/watch-history");
+}
+
+export async function deleteAccount(password: string): Promise<{ ok: boolean }> {
+  return apiFetch("/api/auth/account", {
+    method: "DELETE",
+    body: JSON.stringify({ password }),
+  });
 }
 
 export async function getRecommendations(): Promise<{

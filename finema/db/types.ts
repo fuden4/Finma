@@ -236,3 +236,22 @@ export interface WatchHistoryItem {
   completed: boolean;
   last_watched_at: string;
 }
+
+export interface EpisodeWatchHistoryItem {
+  id: string;
+  series_id: string;
+  series_title: string;
+  season_number: number;
+  episode_number: number;
+  title: string;
+  description: string | null;
+  duration_seconds: number;
+  poster_url: string | null;
+  thumbnail_url: string | null;
+  genres: string[];
+  avg_rating: number | null;
+  rating_count: number;
+  progress_seconds: number;
+  completed: boolean;
+  last_watched_at: string;
+}

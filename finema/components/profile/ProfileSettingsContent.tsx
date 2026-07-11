@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import type { PublicUser } from "@/db/types";
-import { updateProfile } from "@/lib/api-client";
+import { updateProfile, deleteAccount } from "@/lib/api-client";
 import { UserAvatar } from "@/components/profile/UserAvatar";
 import { Navbar } from "@/components/layout/Navbar";
 
@@ -29,6 +29,10 @@ export function ProfileSettingsContent({ user: initialUser }: ProfileSettingsCon
   const [nameError, setNameError] = useState<string | null>(null);
   const [avatarSuccess, setAvatarSuccess] = useState(false);
   const [nameSuccess, setNameSuccess] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -96,6 +100,27 @@ export function ProfileSettingsContent({ user: initialUser }: ProfileSettingsCon
       setAvatarError(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setSavingAvatar(false);
+    }
+  }
+
+  async function handleDeleteAccount(event: React.FormEvent) {
+    event.preventDefault();
+    if (!deletePassword) {
+      setDeleteError("Enter your password to confirm deletion");
+      return;
+    }
+
+    setDeleting(true);
+    setDeleteError(null);
+
+    try {
+      await deleteAccount(deletePassword);
+      router.push("/");
+      router.refresh();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -222,6 +247,82 @@ export function ProfileSettingsContent({ user: initialUser }: ProfileSettingsCon
             </button>
           </form>
         </div>
+
+        {user.role === "user" && (
+          <div className="mt-8 rounded-lg border border-red-500/30 bg-red-500/5 p-6 space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-finema-text">
+                Delete account
+              </h2>
+              <p className="text-sm text-finema-muted mt-1">
+                Permanently delete your account, watch history, ratings,
+                comments, and saved list. This cannot be undone.
+              </p>
+            </div>
+
+            {!showDeleteConfirm ? (
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="px-6 py-2 rounded border border-red-500/50 text-red-300 hover:bg-red-500/10 transition-colors"
+              >
+                Delete my account
+              </button>
+            ) : (
+              <form onSubmit={handleDeleteAccount} className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="deletePassword"
+                    className="block text-sm font-medium text-finema-text mb-2"
+                  >
+                    Confirm with your password
+                  </label>
+                  <input
+                    id="deletePassword"
+                    type="password"
+                    value={deletePassword}
+                    onChange={(event) => {
+                      setDeletePassword(event.target.value);
+                      setDeleteError(null);
+                    }}
+                    autoComplete="current-password"
+                    disabled={deleting}
+                    className={inputClassName}
+                    placeholder="Your password"
+                  />
+                </div>
+
+                {deleteError && (
+                  <p className="text-sm text-red-400" role="alert">
+                    {deleteError}
+                  </p>
+                )}
+
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="submit"
+                    disabled={deleting || !deletePassword}
+                    className="px-6 py-2 rounded bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {deleting ? "Deleting..." : "Permanently delete account"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDeleteConfirm(false);
+                      setDeletePassword("");
+                      setDeleteError(null);
+                    }}
+                    disabled={deleting}
+                    className="px-6 py-2 rounded border border-white/20 hover:border-white/40 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
       </motion.main>
     </div>
   );
