@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import type { SearchResultItem } from "@/db/types";
 import { recordSearchSelection } from "@/lib/api-client";
 import { OPEN_SEARCH_EVENT } from "@/lib/search-events";
 import { isTextInput, SearchModal } from "@/components/search/SearchModal";
@@ -15,15 +16,20 @@ export function GlobalSearch() {
     setOpen(false);
   }, []);
 
-  const handleSelectMovie = useCallback(
-    async (movieId: string) => {
-      try {
-        await recordSearchSelection(movieId);
-      } catch {
-        // Guests or failed requests should not block navigation.
+  const handleSelect = useCallback(
+    async (item: SearchResultItem) => {
+      if (item.type === "movie") {
+        try {
+          await recordSearchSelection(item.id);
+        } catch {
+          // Guests or failed requests should not block navigation.
+        }
       }
+
       setOpen(false);
-      router.push(`/movies/${movieId}`);
+      router.push(
+        item.type === "series" ? `/series/${item.id}` : `/movies/${item.id}`
+      );
     },
     [router]
   );
@@ -51,10 +57,6 @@ export function GlobalSearch() {
   }, [open, pathname]);
 
   return (
-    <SearchModal
-      open={open}
-      onClose={handleClose}
-      onSelectMovie={handleSelectMovie}
-    />
+    <SearchModal open={open} onClose={handleClose} onSelect={handleSelect} />
   );
 }

@@ -255,3 +255,19 @@ export interface EpisodeWatchHistoryItem {
   completed: boolean;
   last_watched_at: string;
 }
+
+export type SearchContentType = "movie" | "series";
+
+export interface SearchResultItem {
+  type: SearchContentType;
+  id: string;
+  title: string;
+  description: string | null;
+  release_year: number | null;
+  poster_url: string | null;
+  match_score: number | null;
+  genres: string[];
+  avg_rating: number | null;
+  rating_count: number;
+  episode_count?: number;
+}

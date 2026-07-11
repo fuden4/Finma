@@ -19,6 +19,7 @@ import type {
   SeriesComment,
   SeriesDetail,
   SeriesWatchlistItem,
+  SearchResultItem,
   UserCommentItem,
   UserUploadedSticker,
   WatchlistItem,
@@ -251,6 +252,30 @@ export async function getRecommendations(): Promise<{
 
 export async function searchMovies(q: string): Promise<{ movies: Movie[] }> {
   return apiFetch(`/api/movies/search?q=${encodeURIComponent(q)}`);
+}
+
+export interface SearchCatalogParams {
+  q?: string;
+  type?: "all" | "movie" | "series";
+  year?: number | null;
+  minRating?: number | null;
+}
+
+export async function searchCatalog(
+  params: SearchCatalogParams
+): Promise<{ results: SearchResultItem[] }> {
+  const searchParams = new URLSearchParams();
+  if (params.q) searchParams.set("q", params.q);
+  if (params.type && params.type !== "all") {
+    searchParams.set("type", params.type);
+  }
+  if (params.year != null) {
+    searchParams.set("year", String(params.year));
+  }
+  if (params.minRating != null) {
+    searchParams.set("min_rating", String(params.minRating));
+  }
+  return apiFetch(`/api/search?${searchParams}`);
 }
 
 export async function recordSearchSelection(

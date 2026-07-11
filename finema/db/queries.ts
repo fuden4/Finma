@@ -25,6 +25,7 @@ import type {
   SeriesComment,
   SeriesDetail,
   SeriesWatchlistItem,
+  SearchResultItem,
   UserCommentItem,
   UserRole,
   UserUploadedSticker,
@@ -282,6 +283,164 @@ export async function searchMoviesByTitle(
     [trimmed, limit]
   );
   return result.rows.map(toMovie);
+}
+
+export interface CatalogSearchFilters {
+  query: string;
+  type?: "all" | "movie" | "series";
+  year?: number | null;
+  minRating?: number | null;
+  limit?: number;
+}
+
+export async function searchCatalog(
+  filters: CatalogSearchFilters
+): Promise<SearchResultItem[]> {
+  const trimmed = filters.query.trim();
+  const type = filters.type ?? "all";
+  const year = filters.year ?? null;
+  const minRating = filters.minRating ?? null;
+  const limit = filters.limit ?? 20;
+
+  const hasQuery = trimmed.length > 0;
+  const hasYear = year !== null;
+  const hasRating = minRating !== null;
+
+  if (!hasQuery && !hasYear && !hasRating) {
+    return [];
+  }
+
+  const pool = getPool();
+  const results: SearchResultItem[] = [];
+
+  if (type === "all" || type === "movie") {
+    const params: unknown[] = [];
+    const conditions: string[] = [];
+
+    if (hasQuery) {
+      params.push(`%${trimmed}%`);
+      conditions.push(`m.title ILIKE $${params.length}`);
+    }
+    if (hasYear) {
+      params.push(year);
+      conditions.push(`m.release_year = $${params.length}`);
+    }
+    if (hasRating) {
+      params.push(minRating);
+      conditions.push(`COALESCE(mr.avg_rating, 0) >= $${params.length}`);
+    }
+
+    params.push(limit);
+    const limitParam = `$${params.length}`;
+
+    const movieResult = await pool.query(
+      `SELECT
+         m.id,
+         m.title,
+         m.description,
+         m.release_year,
+         m.poster_url,
+         m.match_score,
+         mr.avg_rating,
+         mr.rating_count,
+         COALESCE(array_agg(g.name ORDER BY g.name) FILTER (WHERE g.name IS NOT NULL), '{}') AS genres
+       FROM movies m
+       ${MOVIE_RATING_JOIN}
+       LEFT JOIN movie_genres mg ON mg.movie_id = m.id
+       LEFT JOIN genres g ON g.id = mg.genre_id
+       WHERE ${conditions.join(" AND ")}
+       GROUP BY m.id, mr.avg_rating, mr.rating_count
+       ORDER BY m.title
+       LIMIT ${limitParam}`,
+      params
+    );
+
+    results.push(
+      ...movieResult.rows.map((row) => ({
+        type: "movie" as const,
+        id: row.id as string,
+        title: row.title as string,
+        description: row.description as string | null,
+        release_year:
+          row.release_year !== null ? Number(row.release_year) : null,
+        poster_url: row.poster_url as string | null,
+        match_score:
+          row.match_score !== null ? Number(row.match_score) : null,
+        genres: (row.genres as string[] | null) ?? [],
+        avg_rating:
+          row.avg_rating !== null ? Number(row.avg_rating) : null,
+        rating_count: Number(row.rating_count ?? 0),
+      }))
+    );
+  }
+
+  if (type === "all" || type === "series") {
+    const params: unknown[] = [];
+    const conditions: string[] = [];
+
+    if (hasQuery) {
+      params.push(`%${trimmed}%`);
+      conditions.push(`s.title ILIKE $${params.length}`);
+    }
+    if (hasYear) {
+      params.push(year);
+      conditions.push(`s.release_year = $${params.length}`);
+    }
+    if (hasRating) {
+      params.push(minRating);
+      conditions.push(`COALESCE(sr.avg_rating, 0) >= $${params.length}`);
+    }
+
+    params.push(limit);
+    const limitParam = `$${params.length}`;
+
+    const seriesResult = await pool.query(
+      `SELECT
+         s.id,
+         s.title,
+         s.description,
+         s.release_year,
+         s.poster_url,
+         s.match_score,
+         sr.avg_rating,
+         sr.rating_count,
+         COUNT(e.id)::int AS episode_count,
+         COALESCE(array_agg(DISTINCT g.name ORDER BY g.name) FILTER (WHERE g.name IS NOT NULL), '{}') AS genres
+       FROM series s
+       ${SERIES_RATING_JOIN}
+       LEFT JOIN series_genres sg ON sg.series_id = s.id
+       LEFT JOIN genres g ON g.id = sg.genre_id
+       LEFT JOIN episodes e ON e.series_id = s.id
+       WHERE ${conditions.join(" AND ")}
+       GROUP BY s.id, sr.avg_rating, sr.rating_count
+       ORDER BY s.title
+       LIMIT ${limitParam}`,
+      params
+    );
+
+    results.push(
+      ...seriesResult.rows.map((row) => ({
+        type: "series" as const,
+        id: row.id as string,
+        title: row.title as string,
+        description: row.description as string | null,
+        release_year:
+          row.release_year !== null ? Number(row.release_year) : null,
+        poster_url: row.poster_url as string | null,
+        match_score:
+          row.match_score !== null ? Number(row.match_score) : null,
+        genres: (row.genres as string[] | null) ?? [],
+        avg_rating:
+          row.avg_rating !== null ? Number(row.avg_rating) : null,
+        rating_count: Number(row.rating_count ?? 0),
+        episode_count: Number(row.episode_count ?? 0),
+      }))
+    );
+  }
+
+  return results
+    .sort((a, b) => a.title.localeCompare(b.title))
+    .slice(0, limit);
 }
 
 export async function listAdminMovies(): Promise<AdminMovie[]> {
