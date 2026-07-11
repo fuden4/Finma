@@ -33,7 +33,10 @@ export function useHlsPlayer({ videoRef, hlsUrl }: UseHlsPlayerArgs) {
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = hlsUrl;
     } else if (Hls.isSupported()) {
-      hls = new Hls();
+      hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+      });
       hls.loadSource(hlsUrl);
       hls.attachMedia(video);
       hls.on(Hls.Events.ERROR, (_event, data) => {

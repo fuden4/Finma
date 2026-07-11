@@ -116,7 +116,7 @@ export function VideoControls({
         initial={{ opacity: 0 }}
         animate={visibility}
         transition={{ duration: 0.2 }}
-        className="absolute inset-0 flex items-center justify-center gap-8 md:gap-12 pointer-events-none"
+        className="absolute inset-0 z-10 flex items-center justify-center gap-5 sm:gap-8 md:gap-12 pointer-events-none px-4"
       >
         <motion.button
           type="button"
@@ -127,7 +127,7 @@ export function VideoControls({
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.85 }}
           transition={{ type: "spring", stiffness: 500, damping: 20 }}
-          className={`${transportBtn} text-white/90 hover:text-white`}
+          className={`${transportBtn} flex items-center justify-center min-h-[48px] min-w-[48px] text-white/90 hover:text-white touch-manipulation`}
           aria-label="Rewind 10 seconds"
         >
           <motion.span
@@ -145,10 +145,10 @@ export function VideoControls({
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.85 }}
           transition={{ type: "spring", stiffness: 500, damping: 20 }}
-          className={`${transportBtn} flex items-center justify-center text-white/90 hover:text-white`}
+          className={`${transportBtn} flex items-center justify-center min-h-[56px] min-w-[56px] text-white/90 hover:text-white touch-manipulation`}
           aria-label={isPlaying ? "Pause" : "Play"}
         >
-          <span className="relative block w-12 h-12 md:w-14 md:h-14">
+          <span className="relative block w-14 h-14 sm:w-12 sm:h-12 md:w-14 md:h-14">
             <AnimatePresence initial={false}>
               {isPlaying ? (
                 <motion.svg
@@ -188,7 +188,7 @@ export function VideoControls({
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.85 }}
           transition={{ type: "spring", stiffness: 500, damping: 20 }}
-          className={`${transportBtn} text-white/90 hover:text-white`}
+          className={`${transportBtn} flex items-center justify-center min-h-[48px] min-w-[48px] text-white/90 hover:text-white touch-manipulation`}
           aria-label="Forward 10 seconds"
         >
           <motion.span
@@ -206,11 +206,11 @@ export function VideoControls({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: isVisible ? 1 : 0, y: isVisible ? 0 : 20 }}
         transition={{ duration: 0.2 }}
-        className="absolute inset-x-0 bottom-0 px-4 md:px-8 pb-4 md:pb-6 pt-16 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-auto"
+        className="absolute inset-x-0 bottom-0 z-20 px-3 sm:px-4 md:px-8 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-6 pt-16 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-auto"
       >
         {/* Progress row */}
-        <div className="flex items-center gap-3 mb-3">
-          <span className="text-xs md:text-sm text-white/90 tabular-nums shrink-0 min-w-[3.5rem]">
+        <div className="flex items-center gap-2 sm:gap-3 mb-3">
+          <span className="text-xs md:text-sm text-white/90 tabular-nums shrink-0 min-w-[2.75rem] sm:min-w-[3.5rem]">
             {formatTime(currentTime, useHours)}
           </span>
           <input
@@ -223,9 +223,9 @@ export function VideoControls({
             style={{
               background: `linear-gradient(to right, #e50914 0%, #e50914 ${progressPercent}%, rgba(255,255,255,0.3) ${progressPercent}%, rgba(255,255,255,0.3) 100%)`,
             }}
-            className="flex-1 h-1 accent-finema-accent cursor-pointer appearance-none rounded-full [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-0"
+            className="flex-1 h-1.5 sm:h-1 accent-finema-accent cursor-pointer appearance-none rounded-full touch-manipulation [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 sm:[&::-webkit-slider-thumb]:w-3 sm:[&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 sm:[&::-moz-range-thumb]:w-3 sm:[&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-0"
           />
-          <span className="text-xs md:text-sm text-white/90 tabular-nums shrink-0 min-w-[3.5rem] text-right">
+          <span className="text-xs md:text-sm text-white/90 tabular-nums shrink-0 min-w-[2.75rem] sm:min-w-[3.5rem] text-right">
             {formatTime(duration, useHours)}
           </span>
         </div>
@@ -236,7 +236,7 @@ export function VideoControls({
             type="button"
             onClick={onToggleMute}
             whileTap={{ scale: 0.8 }}
-            className="text-white/90 hover:text-white transition-colors p-1"
+            className="flex items-center justify-center min-h-[44px] min-w-[44px] text-white/90 hover:text-white transition-colors touch-manipulation"
             aria-label={muted ? "Unmute" : "Mute"}
           >
             {muted ? (
@@ -256,7 +256,7 @@ export function VideoControls({
                 type="button"
                 onClick={() => setSpeedOpen((open) => !open)}
                 whileTap={{ scale: 0.85 }}
-                className="text-xs md:text-sm text-white/90 hover:text-white transition-colors tabular-nums min-w-[2rem]"
+                className="flex items-center justify-center min-h-[44px] min-w-[44px] text-xs md:text-sm text-white/90 hover:text-white transition-colors tabular-nums touch-manipulation"
                 aria-label="Playback speed"
               >
                 {playbackRate === 1 ? "1x" : `${playbackRate}x`}
@@ -286,7 +286,7 @@ export function VideoControls({
               type="button"
               onClick={onToggleFullscreen}
               whileTap={{ scale: 0.8 }}
-              className="text-white/90 hover:text-white transition-colors p-1"
+              className="flex items-center justify-center min-h-[44px] min-w-[44px] text-white/90 hover:text-white transition-colors touch-manipulation"
               aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
             >
               {isFullscreen ? (

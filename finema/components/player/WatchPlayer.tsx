@@ -13,6 +13,17 @@ interface WatchPlayerProps {
   movie: MovieDetail;
 }
 
+type WebkitVideoElement = HTMLVideoElement & {
+  webkitEnterFullscreen?: () => void;
+  webkitDisplayingFullscreen?: boolean;
+  webkitExitFullscreen?: () => void;
+};
+
+function isCoarsePointerDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(pointer: coarse)").matches;
+}
+
 export function WatchPlayer({ movie }: WatchPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -25,6 +36,7 @@ export function WatchPlayer({ movie }: WatchPlayerProps) {
   const [playbackRate, setPlaybackRate] = useState(1);
   const [muted, setMuted] = useState(false);
   const hideTimerRef = useRef<number | null>(null);
+  const isTouchRef = useRef(false);
 
   const { isLoading, error } = useHlsPlayer({
     videoRef,
@@ -32,6 +44,10 @@ export function WatchPlayer({ movie }: WatchPlayerProps) {
   });
 
   useWatchProgress({ movieId: movie.id, videoRef, autoPlay: true });
+
+  useEffect(() => {
+    isTouchRef.current = isCoarsePointerDevice();
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -75,17 +91,29 @@ export function WatchPlayer({ movie }: WatchPlayerProps) {
       setIsFullscreen(Boolean(document.fullscreenElement));
     };
     document.addEventListener("fullscreenchange", onFullscreenChange);
+
+    const video = videoRef.current as WebkitVideoElement | null;
+    const onWebkitBegin = () => setIsFullscreen(true);
+    const onWebkitEnd = () => setIsFullscreen(false);
+    video?.addEventListener("webkitbeginfullscreen", onWebkitBegin);
+    video?.addEventListener("webkitendfullscreen", onWebkitEnd);
+
     return () => {
       document.removeEventListener("fullscreenchange", onFullscreenChange);
+      video?.removeEventListener("webkitbeginfullscreen", onWebkitBegin);
+      video?.removeEventListener("webkitendfullscreen", onWebkitEnd);
     };
   }, []);
 
-  const showControls = () => {
+  const showControls = (autoHide = true) => {
     setControlsVisible(true);
     if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
+    if (!autoHide) return;
     hideTimerRef.current = window.setTimeout(() => {
-      setControlsVisible(false);
-    }, 3000);
+      if (!videoRef.current?.paused) {
+        setControlsVisible(false);
+      }
+    }, isTouchRef.current ? 4500 : 3000);
   };
 
   useEffect(() => {
@@ -159,13 +187,29 @@ export function WatchPlayer({ movie }: WatchPlayerProps) {
 
   const toggleFullscreen = async () => {
     const container = containerRef.current;
-    if (!container) return;
+    const video = videoRef.current as WebkitVideoElement | null;
+    if (!container || !video) return;
+
     try {
       if (document.fullscreenElement) {
         await document.exitFullscreen();
-      } else {
-        await container.requestFullscreen();
+        showControls();
+        return;
       }
+
+      if (video.webkitDisplayingFullscreen && video.webkitExitFullscreen) {
+        video.webkitExitFullscreen();
+        showControls();
+        return;
+      }
+
+      if (typeof video.webkitEnterFullscreen === "function") {
+        video.webkitEnterFullscreen();
+        showControls();
+        return;
+      }
+
+      await container.requestFullscreen();
     } catch {
       // Fullscreen may be blocked by browser policy
     }
@@ -194,14 +238,18 @@ export function WatchPlayer({ movie }: WatchPlayerProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.35 }}
-      className="relative w-full h-screen bg-black overflow-hidden"
-      onMouseMove={showControls}
-      onMouseLeave={() => setControlsVisible(false)}
+      className="relative w-full h-[100dvh] min-h-[100dvh] bg-black overflow-hidden touch-manipulation"
+      onMouseMove={() => showControls()}
+      onMouseLeave={() => {
+        if (!isTouchRef.current) setControlsVisible(false);
+      }}
+      onTouchStart={() => showControls()}
     >
       <video
         ref={videoRef}
         className="w-full h-full object-contain bg-black"
         playsInline
+        preload="metadata"
         onClick={togglePlay}
       />
 
@@ -211,6 +259,7 @@ export function WatchPlayer({ movie }: WatchPlayerProps) {
         isLoading={isLoading}
         error={error}
         isGuest={isGuest}
+        isPlaying={isPlaying}
       />
 
       <VideoControls
