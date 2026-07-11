@@ -40,5 +40,9 @@ export function isAllowedStickerUrl(url: string, userId?: string): boolean {
 }
 
 export function isUserUploadedStickerPath(url: string, userId: string): boolean {
-  return url.startsWith(`/images/user-stickers/${userId}/`);
+  const prefixes = [
+    `/images/user-stickers/${userId}/`,
+    `/api/uploads/user-stickers/${userId}/`,
+  ];
+  return prefixes.some((prefix) => url.startsWith(prefix));
 }
