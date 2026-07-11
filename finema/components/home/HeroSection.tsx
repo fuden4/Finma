@@ -54,7 +54,7 @@ function HeroSlide({
       <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-t from-finema-bg via-transparent to-black/30" />
 
-      <div className="relative z-10 flex flex-col justify-end h-full px-4 md:px-8 pb-16 md:pb-24 max-w-3xl">
+      <div className="relative z-10 flex flex-col justify-end h-full px-4 md:px-8 pb-20 sm:pb-16 md:pb-24 pt-16 sm:pt-14 max-w-3xl">
         <motion.div
           initial="hidden"
           animate="visible"
@@ -80,7 +80,7 @@ function HeroSlide({
               hidden: { opacity: 0, y: 30 },
               visible: { opacity: 1, y: 0 },
             }}
-            className="text-4xl md:text-6xl font-bold text-finema-text leading-tight mb-3"
+            className="text-3xl sm:text-4xl md:text-6xl font-bold text-finema-text leading-tight mb-3"
           >
             {movie.title}
           </motion.h1>
@@ -124,11 +124,11 @@ function HeroSlide({
               hidden: { opacity: 0, y: 20 },
               visible: { opacity: 1, y: 0 },
             }}
-            className="flex gap-3"
+            className="flex flex-wrap gap-2 sm:gap-3"
           >
             <Link
               href={`/watch/${movie.id}`}
-              className="flex items-center gap-2 px-6 py-2.5 rounded bg-finema-accent text-white font-semibold hover:bg-finema-accent/90 transition-colors"
+              className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 rounded bg-finema-accent text-white text-sm sm:text-base font-semibold hover:bg-finema-accent/90 transition-colors touch-manipulation"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
@@ -144,7 +144,7 @@ function HeroSlide({
             />
             <Link
               href={`/movies/${movie.id}`}
-              className="px-6 py-2.5 rounded bg-white/20 text-white font-semibold hover:bg-white/30 transition-colors backdrop-blur-sm"
+              className="px-4 sm:px-6 py-2.5 rounded bg-white/20 text-white text-sm sm:text-base font-semibold hover:bg-white/30 transition-colors backdrop-blur-sm touch-manipulation"
             >
               More Info
             </Link>
@@ -188,7 +188,7 @@ export function HeroSection({
 
   return (
     <section
-      className="group relative h-[70vh] min-h-[480px] max-h-[800px] w-full overflow-hidden bg-black"
+      className="group relative h-[58vh] min-h-[380px] sm:h-[70vh] sm:min-h-[480px] max-h-[800px] w-full overflow-hidden bg-black"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
@@ -244,7 +244,7 @@ export function HeroSection({
             </svg>
           </button>
 
-          <div className="absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 gap-2">
+          <div className="absolute bottom-4 sm:bottom-6 left-1/2 z-20 flex -translate-x-1/2 gap-2">
             {movies.map((m, i) => (
               <button
                 key={m.id}

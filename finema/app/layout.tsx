@@ -19,6 +19,12 @@ export const metadata: Metadata = {
   description: "Stream movies with cinematic quality",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover" as const,
+};
+
 export const dynamic = "force-dynamic";
 
 export default function RootLayout({

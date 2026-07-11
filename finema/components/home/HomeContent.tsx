@@ -109,7 +109,7 @@ export function HomeContent({ movies, featured }: HomeContentProps) {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mx-4 md:mx-8 mb-8 px-4 py-3 rounded-lg bg-finema-surface border border-white/10 flex items-center justify-between gap-4"
+            className="mx-3 sm:mx-4 md:mx-8 mb-8 px-4 py-3 rounded-lg bg-finema-surface border border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4"
           >
             <p className="text-sm text-finema-muted">
               Sign in to save your progress and unlock Continue Watching.{" "}
@@ -119,7 +119,7 @@ export function HomeContent({ movies, featured }: HomeContentProps) {
             </p>
             <Link
               href="/login"
-              className="text-sm px-4 py-2 rounded bg-finema-accent text-white font-medium hover:bg-finema-accent/90 transition-colors shrink-0"
+              className="text-sm px-4 py-2.5 rounded bg-finema-accent text-white font-medium hover:bg-finema-accent/90 transition-colors shrink-0 text-center touch-manipulation"
             >
               Sign In
             </Link>
