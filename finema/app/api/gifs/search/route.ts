@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { searchGifs } from "@/lib/giphy";
-import { requireActiveUser } from "@/lib/auth";
+import { GiphyConfigError, GiphyRequestError, searchGifs } from "@/lib/giphy";
+import { requireUser } from "@/lib/auth";
 import { handleRouteError, HttpError } from "@/lib/http";
 
 export async function GET(request: Request) {
   try {
-    await requireActiveUser();
+    await requireUser();
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q") ?? "";
@@ -19,11 +19,18 @@ export async function GET(request: Request) {
     const gifs = await searchGifs(query, offset);
     return NextResponse.json({ gifs });
   } catch (error) {
-    if (error instanceof Error && error.message === "GIPHY_API_KEY is not configured") {
+    if (error instanceof GiphyConfigError) {
       return NextResponse.json(
-        { error: "GIF search is not configured" },
+        {
+          error:
+            "GIF search is not configured. Add GIPHY_API_KEY to .env.local on the server.",
+        },
         { status: 503 }
       );
+    }
+    if (error instanceof GiphyRequestError) {
+      const status = error.status === 401 || error.status === 403 ? 503 : 502;
+      return NextResponse.json({ error: error.message }, { status });
     }
     return handleRouteError(error);
   }

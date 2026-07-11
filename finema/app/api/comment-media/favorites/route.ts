@@ -4,7 +4,7 @@ import {
   removeUserMediaFavorite,
 } from "@/db/queries";
 import type { CommentMediaType } from "@/db/types";
-import { requireActiveUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { isAllowedGifUrl, validateCommentMedia } from "@/lib/comment-media";
 import { handleRouteError, HttpError } from "@/lib/http";
 
@@ -17,7 +17,7 @@ function parseMediaType(value: unknown): CommentMediaType {
 
 export async function POST(request: Request) {
   try {
-    const user = await requireActiveUser();
+    const user = await requireUser();
     const body = await request.json();
     const mediaType = parseMediaType(body?.media_type);
     const mediaUrl =
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const user = await requireActiveUser();
+    const user = await requireUser();
     const body = await request.json();
     const mediaType = parseMediaType(body?.media_type);
     const mediaUrl =
