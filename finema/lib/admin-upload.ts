@@ -259,9 +259,10 @@ export interface TranscodeResult {
 
 export async function saveAndTranscodeVideo(
   video: File,
-  title: string
+  title: string,
+  outputSlug?: string
 ): Promise<TranscodeResult> {
-  const slug = slugifyTitle(title);
+  const slug = outputSlug ?? slugifyTitle(title);
   if (!slug) {
     throw new HttpError(400, "Could not generate video folder from title");
   }

@@ -7,6 +7,7 @@ import {
 } from "@/lib/admin-upload";
 import { requireAdmin } from "@/lib/auth";
 import { handleRouteError } from "@/lib/http";
+import { slugifyTitle } from "@/lib/slug";
 
 export const runtime = "nodejs";
 export const maxDuration = 600;
@@ -45,7 +46,16 @@ export async function POST(request: Request) {
     if (parsed.video) {
       const episodeTitle =
         parsed.episode_title ?? `${parsed.title} - S${parsed.season_number}E${parsed.episode_number}`;
-      const transcode = await saveAndTranscodeVideo(parsed.video, episodeTitle);
+      const outputSlug = [
+        slugifyTitle(parsed.title) || "series",
+        `s${parsed.season_number}e${parsed.episode_number}`,
+        slugifyTitle(episodeTitle) || "episode",
+      ].join("-");
+      const transcode = await saveAndTranscodeVideo(
+        parsed.video,
+        episodeTitle,
+        outputSlug
+      );
       await createEpisodeWithStream({
         series_id: series.id,
         season_number: parsed.season_number,

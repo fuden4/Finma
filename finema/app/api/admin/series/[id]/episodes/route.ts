@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
-import { createEpisodeWithStream, getSeriesById } from "@/db/queries";
+import {
+  createEpisodeWithStream,
+  episodeNumberExists,
+  getSeriesById,
+} from "@/db/queries";
 import {
   parseEpisodeFormData,
   saveAndTranscodeVideo,
 } from "@/lib/admin-upload";
 import { requireAdmin } from "@/lib/auth";
 import { assertUuid, handleRouteError, HttpError } from "@/lib/http";
+import { slugifyTitle } from "@/lib/slug";
 
 export const runtime = "nodejs";
 export const maxDuration = 600;
@@ -27,7 +32,30 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     const formData = await request.formData();
     const parsed = parseEpisodeFormData(formData);
-    const transcode = await saveAndTranscodeVideo(parsed.video!, parsed.title);
+
+    if (
+      await episodeNumberExists(
+        id,
+        parsed.season_number,
+        parsed.episode_number
+      )
+    ) {
+      throw new HttpError(
+        409,
+        `Season ${parsed.season_number} episode ${parsed.episode_number} already exists for this series. Use the next episode number.`
+      );
+    }
+
+    const outputSlug = [
+      slugifyTitle(existing.title) || "series",
+      `s${parsed.season_number}e${parsed.episode_number}`,
+      slugifyTitle(parsed.title) || "episode",
+    ].join("-");
+    const transcode = await saveAndTranscodeVideo(
+      parsed.video!,
+      parsed.title,
+      outputSlug
+    );
 
     const episode = await createEpisodeWithStream({
       series_id: id,

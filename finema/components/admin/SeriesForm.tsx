@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { AdminSeries, Genre, SeriesDetail } from "@/db/types";
+import type { AdminSeries, Episode, Genre, SeriesDetail } from "@/db/types";
 import {
   createAdminEpisode,
   createAdminSeries,
   getAdminGenres,
   getAdminSeries,
+  getAdminSeriesById,
   updateAdminSeries,
 } from "@/lib/api-client";
 import { UploadZone } from "./UploadZone";
@@ -20,6 +21,27 @@ type FormMode = "create" | "add-episode" | "edit";
 interface SeriesFormProps {
   mode: FormMode;
   series?: SeriesDetail;
+}
+
+function getNextEpisodeNumbers(episodes: Episode[]): {
+  season_number: number;
+  episode_number: number;
+} {
+  if (episodes.length === 0) {
+    return { season_number: 1, episode_number: 1 };
+  }
+
+  const sorted = [...episodes].sort((a, b) => {
+    if (a.season_number !== b.season_number) {
+      return a.season_number - b.season_number;
+    }
+    return a.episode_number - b.episode_number;
+  });
+  const last = sorted[sorted.length - 1];
+  return {
+    season_number: last.season_number,
+    episode_number: last.episode_number + 1,
+  };
 }
 
 export function SeriesForm({ mode, series }: SeriesFormProps) {
@@ -48,6 +70,8 @@ export function SeriesForm({ mode, series }: SeriesFormProps) {
   const [loading, setLoading] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
+  const [seasonNumber, setSeasonNumber] = useState(1);
+  const [episodeNumber, setEpisodeNumber] = useState(1);
 
   const selectedSeries = allSeries.find((s) => s.id === selectedSeriesId);
 
@@ -61,6 +85,31 @@ export function SeriesForm({ mode, series }: SeriesFormProps) {
         .catch(() => setError("Failed to load series list"));
     }
   }, [mode]);
+
+  useEffect(() => {
+    if (formMode !== "episode" || !selectedSeriesId) {
+      return;
+    }
+
+    let cancelled = false;
+    getAdminSeriesById(selectedSeriesId)
+      .then(({ series: detail }) => {
+        if (cancelled) return;
+        const next = getNextEpisodeNumbers(detail.episodes);
+        setSeasonNumber(next.season_number);
+        setEpisodeNumber(next.episode_number);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSeasonNumber(1);
+          setEpisodeNumber(1);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formMode, selectedSeriesId]);
 
   useEffect(() => {
     if (!loading) {
@@ -378,7 +427,11 @@ export function SeriesForm({ mode, series }: SeriesFormProps) {
                 name="season_number"
                 type="number"
                 min={1}
-                defaultValue={1}
+                value={showEpisodeFields ? seasonNumber : 1}
+                onChange={(e) =>
+                  setSeasonNumber(Number.parseInt(e.target.value, 10) || 1)
+                }
+                readOnly={!showEpisodeFields}
                 className="w-full rounded-lg bg-finema-surface border border-white/10 px-4 py-2.5 focus:border-finema-accent focus:outline-none"
               />
             </div>
@@ -388,7 +441,11 @@ export function SeriesForm({ mode, series }: SeriesFormProps) {
                 name="episode_number"
                 type="number"
                 min={1}
-                defaultValue={1}
+                value={showEpisodeFields ? episodeNumber : 1}
+                onChange={(e) =>
+                  setEpisodeNumber(Number.parseInt(e.target.value, 10) || 1)
+                }
+                readOnly={!showEpisodeFields}
                 className="w-full rounded-lg bg-finema-surface border border-white/10 px-4 py-2.5 focus:border-finema-accent focus:outline-none"
               />
             </div>

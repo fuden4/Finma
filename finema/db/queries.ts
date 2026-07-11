@@ -1852,6 +1852,22 @@ export async function deleteSeries(seriesId: string): Promise<boolean> {
   return (result.rowCount ?? 0) > 0;
 }
 
+export async function episodeNumberExists(
+  seriesId: string,
+  seasonNumber: number,
+  episodeNumber: number
+): Promise<boolean> {
+  const pool = getPool();
+  const result = await pool.query(
+    `SELECT 1
+     FROM episodes
+     WHERE series_id = $1 AND season_number = $2 AND episode_number = $3
+     LIMIT 1`,
+    [seriesId, seasonNumber, episodeNumber]
+  );
+  return result.rows.length > 0;
+}
+
 export interface CreateEpisodeInput {
   series_id: string;
   season_number: number;
