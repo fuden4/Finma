@@ -26,8 +26,8 @@ function resolveAudioPath(segments: string[]): string | null {
   return filePath;
 }
 
-function toWebStream(nodeStream: ReadableStream<Uint8Array> | NodeJS.ReadableStream) {
-  return Readable.toWeb(nodeStream as NodeJS.ReadableStream);
+function toWebStream(nodeStream: Readable) {
+  return Readable.toWeb(nodeStream);
 }
 
 export async function GET(
