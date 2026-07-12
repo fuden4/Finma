@@ -11,7 +11,7 @@ interface FirstVisitIntroProps {
 export function FirstVisitIntro({ onComplete }: FirstVisitIntroProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [dismissing, setDismissing] = useState(false);
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(false);
 
   const finish = useCallback(() => {
     if (dismissing) return;
@@ -25,6 +25,25 @@ export function FirstVisitIntro({ onComplete }: FirstVisitIntroProps) {
     return () => {
       document.body.style.overflow = previousOverflow;
     };
+  }, []);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.muted = false;
+    const playUnmuted = async () => {
+      try {
+        await video.play();
+        setMuted(false);
+      } catch {
+        video.muted = true;
+        setMuted(true);
+        await video.play().catch(() => {});
+      }
+    };
+
+    void playUnmuted();
   }, []);
 
   const toggleMute = () => {
@@ -49,7 +68,7 @@ export function FirstVisitIntro({ onComplete }: FirstVisitIntroProps) {
             src="/intro.mp4"
             autoPlay
             playsInline
-            muted
+            muted={muted}
             className="h-full w-full object-contain"
             onEnded={finish}
             onError={finish}
