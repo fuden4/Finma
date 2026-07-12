@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Finma API Endpoints</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface-hover: #222633;
+      --border: #2d3348;
+      --text: #e4e6ef;
+      --text-muted: #8b90a5;
+      --accent: #6c63ff;
+      --get: #22c55e;
+      --post: #3b82f6;
+      --put: #f59e0b;
+      --patch: #a855f7;
+      --delete: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1.5rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .controls input,
+    .controls select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      outline: none;
+    }
+
+    .controls input { flex: 1; min-width: 200px; }
+    .controls input:focus,
+    .controls select:focus { border-color: var(--accent); }
+
+    .stats {
+      margin-top: 0.75rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    main { max-width: 1100px; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
+
+    .section {
+      margin-bottom: 2rem;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-header h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .section-count {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+    }
+
+    .endpoint {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 0.35rem;
+      background: var(--surface);
+      border: 1px solid transparent;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .endpoint:hover {
+      background: var(--surface-hover);
+      border-color: var(--border);
+    }
+
+    .method {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 0.25rem 0;
+      text-align: center;
+      border-radius: 4px;
+      align-self: start;
+      margin-top: 0.1rem;
+    }
+
+    .method.GET    { background: color-mix(in srgb, var(--get) 18%, transparent); color: var(--get); }
+    .method.POST   { background: color-mix(in srgb, var(--post) 18%, transparent); color: var(--post); }
+    .method.PUT    { background: color-mix(in srgb, var(--put) 18%, transparent); color: var(--put); }
+    .method.PATCH  { background: color-mix(in srgb, var(--patch) 18%, transparent); color: var(--patch); }
+    .method.DELETE { background: color-mix(in srgb, var(--delete) 18%, transparent); color: var(--delete); }
+
+    .endpoint-path {
+      font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+      font-size: 0.875rem;
+      word-break: break-all;
+    }
+
+    .endpoint-desc {
+      grid-column: 2;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: -0.25rem;
+    }
+
+    .endpoint-file {
+      grid-column: 2;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      opacity: 0.6;
+      font-family: monospace;
+      margin-top: -0.15rem;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 0.1rem 0.4rem;
+      border-radius: 3px;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+
+    .badge.auth { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+    .badge.admin { background: color-mix(in srgb, var(--delete) 15%, transparent); color: #f87171; }
+    .badge.multipart { background: color-mix(in srgb, var(--put) 15%, transparent); color: var(--put); }
+
+    .note {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 2rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .note strong { color: var(--text); }
+
+    .hidden { display: none !important; }
+
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Finma API Endpoints</h1>
+  <p id="subtitle">Next.js App Router API reference</p>
+  <div class="controls">
+    <input type="search" id="search" placeholder="Search paths, methods, descriptions…" autofocus />
+    <select id="method-filter">
+      <option value="">All methods</option>
+      <option value="GET">GET</option>
+      <option value="POST">POST</option>
+      <option value="PUT">PUT</option>
+      <option value="PATCH">PATCH</option>
+      <option value="DELETE">DELETE</option>
+    </select>
+    <select id="section-filter">
+      <option value="">All sections</option>
+    </select>
+  </div>
+  <div class="stats" id="stats"></div>
+</header>
+
+<main>
+  <div class="note">
+    <strong>Base URL:</strong> <code>/api</code> (relative to the Next.js app).<br />
+    <strong>Rewrites:</strong> <code>GET /images/*</code> &rarr; <code>/api/uploads/*</code> &nbsp;|&nbsp;
+    <code>GET /videos/*</code> &rarr; <code>/api/videos/*</code><br />
+    <strong>Auth:</strong> Most user routes require a session. All <code>/api/admin/*</code> routes require admin role.
+  </div>
+
+  <div id="endpoints"></div>
+</main>
+
+<script>
+const sections = [
+  {
+    name: "Authentication",
+    prefix: "/api/auth",
+    endpoints: [
+      { method: "POST", path: "/api/auth/login", desc: "Login with email/password; creates session", file: "app/api/auth/login/route.ts" },
+      { method: "POST", path: "/api/auth/logout", desc: "Destroy session", file: "app/api/auth/logout/route.ts" },
+      { method: "GET", path: "/api/auth/me", desc: "Get current authenticated user", file: "app/api/auth/me/route.ts", tags: ["auth"] },
+      { method: "POST", path: "/api/auth/register", desc: "Register user (email, displayName, password, optional avatar)", file: "app/api/auth/register/route.ts", tags: ["multipart"] },
+      { method: "PATCH", path: "/api/auth/profile", desc: "Update display name and/or avatar", file: "app/api/auth/profile/route.ts", tags: ["auth", "multipart"] },
+      { method: "DELETE", path: "/api/auth/account", desc: "Delete own account (requires password confirmation)", file: "app/api/auth/account/route.ts", tags: ["auth"] },
+    ]
+  },
+  {
+    name: "Movies",
+    prefix: "/api/movies",
+    endpoints: [
+      { method: "GET", path: "/api/movies", desc: "List all movies", file: "app/api/movies/route.ts" },
+      { method: "GET", path: "/api/movies/:id", desc: "Get movie by ID", file: "app/api/movies/[id]/route.ts" },
+      { method: "GET", path: "/api/movies/search?q=", desc: "Search movies by title (limit 10)", file: "app/api/movies/search/route.ts" },
+      { method: "POST", path: "/api/movies/search-events", desc: "Record user search/click event (movie_id)", file: "app/api/movies/search-events/route.ts", tags: ["auth"] },
+      { method: "GET", path: "/api/movies/watchlist", desc: "Get user's movie watchlist", file: "app/api/movies/watchlist/route.ts", tags: ["auth"] },
+      { method: "GET", path: "/api/movies/:id/watchlist", desc: "Check if movie is in watchlist", file: "app/api/movies/[id]/watchlist/route.ts", tags: ["auth"] },
+      { method: "POST", path: "/api/movies/:id/watchlist", desc: "Add movie to watchlist", file: "app/api/movies/[id]/watchlist/route.ts", tags: ["auth"] },
+      { method: "DELETE", path: "/api/movies/:id/watchlist", desc: "Remove movie from watchlist", file: "app/api/movies/[id]/watchlist/route.ts", tags: ["auth"] },
+      { method: "GET", path: "/api/movies/watch-history", desc: "Get user's movie watch history", file: "app/api/movies/watch-history/route.ts", tags: ["auth"] },
+      { method: "GET", path: "/api/movies/continue-watching", desc: "Get in-progress movies", file: "app/api/movies/continue-watching/route.ts", tags: ["auth"] },
+      { method: "GET", path: "/api/movies/recommendations", desc: "Get personalized movie recommendations", file: "app/api/movies/recommendations/route.ts", tags: ["auth"] },
+      { method: "GET", path: "/api/movies/ratings", desc: "List movies rated by user", file: "app/api/movies/ratings/route.ts", tags: ["auth"] },
+      { method: "GET", path: "/api/movies/:id/rating", desc: "Get rating stats + optional user rating", file: "app/api/movies/[id]/rating/route.ts" },
+      { method: "PUT", path: "/api/movies/:id/rating", desc: "Upsert user rating (1–5)", file: "app/api/movies/[id]/rating/route.ts", tags: ["auth"] },
+      { method: "DELETE", path: "/api/movies/:id/rating", desc: "Remove user rating", file: "app/api/movies/[id]/rating/route.ts", tags: ["auth"] },
+      { method: "GET", path: "/api/movies/:id/comments", desc: "List comments for a movie", file: "app/api/movies/[id]/comments/route.ts" },
+      { method: "POST", path: "/api/movies/:id/comments", desc: "Create comment (text, optional media, optional parent)", file: "app/api/movies/[id]/comments/route.ts", tags: ["auth"] },
+    ]
+  },
+  {
+    name: "Series",
+    prefix: "/api/series",
+    endpoints: [
+      { method: "GET", path: "/api/series", desc: "List all series", file: "app/api/series/route.ts" },
+      { method: "GET", path: "/api/series/:id", desc: "Get series detail by ID", file: "app/api/series/[id]/route.ts" },
+      { method: "GET", path: "/api/series/:id/comments", desc: "List comments for a series", file: "app/api/series/[id]/comments/route.ts" },
+      { method: "POST", path: "/api/series/:id/comments", desc: "Create series comment", file: "app/api/series/[id]/comments/route.ts", tags: ["auth"] },
+      { method: "GET", path: "/api/series/:id/rating", desc: "Get series rating stats + optional user rating", file: "app/api/series/[id]/rating/route.ts" },
+      { method: "PUT", path: "/api/series/:id/rating", desc: "Upsert user rating (1–5)", file: "app/api/series/[id]/rating/route.ts", tags: ["auth"] },
+      { method: "DELETE", path: "/api/series/:id/rating", desc: "Remove user rating", file: "app/api/series/[id]/rating/route.ts", tags: ["auth"] },
+      { method: "GET", path: "/api/series/:id/watchlist", desc: "Check if series is in watchlist", file: "app/api/series/[id]/watchlist/route.ts", tags: ["auth"] },
+      { method: "POST", path: "/api/series/:id/watchlist", desc: "Add series to watchlist", file: "app/api/series/[id]/watchlist/route.ts", tags: ["auth"] },
+      { method: "DELETE", path: "/api/series/:id/watchlist", desc: "Remove series from watchlist", file: "app/api/series/[id]/watchlist/route.ts", tags: ["auth"] },
+      { method: "GET", path: "/api/series/watchlist", desc: "Get user's series watchlist", file: "app/api/series/watchlist/route.ts", tags: ["auth"] },
+      { method: "GET", path: "/api/series/watch-history", desc: "Get episode watch history", file: "app/api/series/watch-history/route.ts", tags: ["auth"] },
+    ]
+  },
+  {
+    name: "Watch Progress",
+    prefix: "/api/watch",
+    endpoints: [
+      { method: "GET", path: "/api/watch/:movieId/progress", desc: "Get movie playback progress", file: "app/api/watch/[movieId]/progress/route.ts", tags: ["auth"] },
+      { method: "PUT", path: "/api/watch/:movieId/progress", desc: "Save movie progress (progress_seconds)", file: "app/api/watch/[movieId]/progress/route.ts", tags: ["auth"] },
+      { method: "GET", path: "/api/watch/episode/:episodeId/progress", desc: "Get episode playback progress", file: "app/api/watch/episode/[episodeId]/progress/route.ts", tags: ["auth"] },
+      { method: "PUT", path: "/api/watch/episode/:episodeId/progress", desc: "Save episode progress (progress_seconds)", file: "app/api/watch/episode/[episodeId]/progress/route.ts", tags: ["auth"] },
+    ]
+  },
+  {
+    name: "Search",
+    prefix: "/api/search",
+    endpoints: [
+      { method: "GET", path: "/api/search?q=&type=&year=&min_rating=", desc: "Unified catalog search (type: all/movie/series/song/poster)", file: "app/api/search/route.ts" },
+    ]
+  },
+  {
+    name: "Comments",
+    prefix: "/api/comments",
+    endpoints: [
+      { method: "GET", path: "/api/comments/me", desc: "List current user's comments", file: "app/api/comments/me/route.ts", tags: ["auth"] },
+      { method: "DELETE", path: "/api/comments/:commentId", desc: "Delete own comment", file: "app/api/comments/[commentId]/route.ts", tags: ["auth"] },
+      { method: "POST", path: "/api/comments/:commentId/report", desc: "Report a comment (reason)", file: "app/api/comments/[commentId]/report/route.ts", tags: ["auth"] },
+    ]
+  },
+  {
+    name: "Comment Media / GIFs / Stickers",
+    prefix: "/api/comment-media",
+    endpoints: [
+      { method: "GET", path: "/api/comment-media/library", desc: "Get user's GIF/sticker library (recent + favorites)", file: "app/api/comment-media/library/route.ts", tags: ["auth"] },
+      { method: "POST", path: "/api/comment-media/favorites", desc: "Add GIF/sticker to favorites", file: "app/api/comment-media/favorites/route.ts", tags: ["auth"] },
+      { method: "DELETE", path: "/api/comment-media/favorites", desc: "Remove GIF/sticker from favorites", file: "app/api/comment-media/favorites/route.ts", tags: ["auth"] },
+      { method: "GET", path: "/api/gifs/search?q=&offset=", desc: "Search Giphy GIFs", file: "app/api/gifs/search/route.ts", tags: ["auth"] },
+      { method: "POST", path: "/api/stickers/upload", desc: "Upload user sticker (sticker_file, optional label)", file: "app/api/stickers/upload/route.ts", tags: ["auth", "multipart"] },
+    ]
+  },
+  {
+    name: "Posters",
+    prefix: "/api/posters",
+    endpoints: [
+      { method: "GET", path: "/api/posters", desc: "List posters (with like stats for session user)", file: "app/api/posters/route.ts" },
+      { method: "GET", path: "/api/posters/likes", desc: "List posters liked by user", file: "app/api/posters/likes/route.ts", tags: ["auth"] },
+      { method: "POST", path: "/api/posters/:id/like", desc: "Like a poster", file: "app/api/posters/[id]/like/route.ts", tags: ["auth"] },
+      { method: "DELETE", path: "/api/posters/:id/like", desc: "Unlike a poster", file: "app/api/posters/[id]/like/route.ts", tags: ["auth"] },
+    ]
+  },
+  {
+    name: "Songs",
+    prefix: "/api/songs",
+    endpoints: [
+      { method: "GET", path: "/api/songs?category_id=&q=", desc: "List songs (optional category/query filters)", file: "app/api/songs/route.ts" },
+      { method: "GET", path: "/api/songs/:id", desc: "Get song by ID", file: "app/api/songs/[id]/route.ts" },
+      { method: "GET", path: "/api/songs/:id/download", desc: "Download song audio file (attachment)", file: "app/api/songs/[id]/download/route.ts" },
+      { method: "POST", path: "/api/songs/:id/like", desc: "Like a song", file: "app/api/songs/[id]/like/route.ts", tags: ["auth"] },
+      { method: "DELETE", path: "/api/songs/:id/like", desc: "Unlike a song", file: "app/api/songs/[id]/like/route.ts", tags: ["auth"] },
+      { method: "GET", path: "/api/songs/likes", desc: "List liked songs and song blocks", file: "app/api/songs/likes/route.ts", tags: ["auth"] },
+      { method: "GET", path: "/api/songs/blocks", desc: "List song blocks (curated collections)", file: "app/api/songs/blocks/route.ts" },
+      { method: "GET", path: "/api/songs/blocks/:id", desc: "Get song block with songs", file: "app/api/songs/blocks/[id]/route.ts" },
+      { method: "POST", path: "/api/songs/blocks/:id/like", desc: "Like a song block", file: "app/api/songs/blocks/[id]/like/route.ts", tags: ["auth"] },
+      { method: "DELETE", path: "/api/songs/blocks/:id/like", desc: "Unlike a song block", file: "app/api/songs/blocks/[id]/like/route.ts", tags: ["auth"] },
+      { method: "GET", path: "/api/songs/categories", desc: "List song categories", file: "app/api/songs/categories/route.ts" },
+      { method: "GET", path: "/api/songs/categories/:id", desc: "Get category with songs", file: "app/api/songs/categories/[id]/route.ts" },
+    ]
+  },
+  {
+    name: "Playlists",
+    prefix: "/api/playlists",
+    endpoints: [
+      { method: "GET", path: "/api/playlists", desc: "List user's playlists", file: "app/api/playlists/route.ts", tags: ["auth"] },
+      { method: "POST", path: "/api/playlists", desc: "Create playlist (name, optional description)", file: "app/api/playlists/route.ts", tags: ["auth"] },
+      { method: "GET", path: "/api/playlists/:id", desc: "Get playlist with songs", file: "app/api/playlists/[id]/route.ts", tags: ["auth"] },
+      { method: "PUT", path: "/api/playlists/:id", desc: "Update playlist", file: "app/api/playlists/[id]/route.ts", tags: ["auth"] },
+      { method: "DELETE", path: "/api/playlists/:id", desc: "Delete playlist", file: "app/api/playlists/[id]/route.ts", tags: ["auth"] },
+      { method: "POST", path: "/api/playlists/:id/songs", desc: "Add song to playlist (song_id)", file: "app/api/playlists/[id]/songs/route.ts", tags: ["auth"] },
+      { method: "DELETE", path: "/api/playlists/:id/songs", desc: "Remove song from playlist (song_id)", file: "app/api/playlists/[id]/songs/route.ts", tags: ["auth"] },
+    ]
+  },
+  {
+    name: "Static Media Serving",
+    prefix: "/api/media",
+    endpoints: [
+      { method: "GET", path: "/api/audio/*", desc: "Stream audio files (supports Range → 206 Partial Content)", file: "app/api/audio/[...path]/route.ts" },
+      { method: "GET", path: "/api/videos/*", desc: "Serve HLS/video files (.m3u8, .mp4, .ts)", file: "app/api/videos/[...path]/route.ts" },
+      { method: "GET", path: "/api/uploads/*", desc: "Serve uploaded images (avatars, posters, stickers, etc.)", file: "app/api/uploads/[...path]/route.ts" },
+      { method: "GET", path: "/images/*", desc: "Rewrite alias → /api/uploads/*", file: "next.config.ts (rewrite)" },
+      { method: "GET", path: "/videos/*", desc: "Rewrite alias → /api/videos/*", file: "next.config.ts (rewrite)" },
+    ]
+  },
+  {
+    name: "Admin — Movies",
+    prefix: "/api/admin/movies",
+    endpoints: [
+      { method: "GET", path: "/api/admin/movies", desc: "List movies (admin view)", file: "app/api/admin/movies/route.ts", tags: ["admin"] },
+      { method: "POST", path: "/api/admin/movies", desc: "Create movie with video transcode", file: "app/api/admin/movies/route.ts", tags: ["admin", "multipart"] },
+      { method: "GET", path: "/api/admin/movies/:id", desc: "Get movie for editing", file: "app/api/admin/movies/[id]/route.ts", tags: ["admin"] },
+      { method: "PUT", path: "/api/admin/movies/:id", desc: "Update movie (optional new video)", file: "app/api/admin/movies/[id]/route.ts", tags: ["admin", "multipart"] },
+      { method: "DELETE", path: "/api/admin/movies/:id", desc: "Delete movie", file: "app/api/admin/movies/[id]/route.ts", tags: ["admin"] },
+    ]
+  },
+  {
+    name: "Admin — Series & Episodes",
+    prefix: "/api/admin/series",
+    endpoints: [
+      { method: "GET", path: "/api/admin/series", desc: "List series (admin view)", file: "app/api/admin/series/route.ts", tags: ["admin"] },
+      { method: "POST", path: "/api/admin/series", desc: "Create series (optional first episode + video)", file: "app/api/admin/series/route.ts", tags: ["admin", "multipart"] },
+      { method: "GET", path: "/api/admin/series/:id", desc: "Get series for editing", file: "app/api/admin/series/[id]/route.ts", tags: ["admin"] },
+      { method: "PUT", path: "/api/admin/series/:id", desc: "Update series metadata/images", file: "app/api/admin/series/[id]/route.ts", tags: ["admin", "multipart"] },
+      { method: "DELETE", path: "/api/admin/series/:id", desc: "Delete series", file: "app/api/admin/series/[id]/route.ts", tags: ["admin"] },
+      { method: "POST", path: "/api/admin/series/:id/episodes", desc: "Add episode with video transcode", file: "app/api/admin/series/[id]/episodes/route.ts", tags: ["admin", "multipart"] },
+      { method: "PUT", path: "/api/admin/episodes/:id", desc: "Update episode (optional new video)", file: "app/api/admin/episodes/[id]/route.ts", tags: ["admin", "multipart"] },
+      { method: "DELETE", path: "/api/admin/episodes/:id", desc: "Delete episode", file: "app/api/admin/episodes/[id]/route.ts", tags: ["admin"] },
+    ]
+  },
+  {
+    name: "Admin — Genres",
+    prefix: "/api/admin/genres",
+    endpoints: [
+      { method: "GET", path: "/api/admin/genres", desc: "List all genres", file: "app/api/admin/genres/route.ts", tags: ["admin"] },
+    ]
+  },
+  {
+    name: "Admin — Posters",
+    prefix: "/api/admin/posters",
+    endpoints: [
+      { method: "GET", path: "/api/admin/posters", desc: "List posters (admin view)", file: "app/api/admin/posters/route.ts", tags: ["admin"] },
+      { method: "POST", path: "/api/admin/posters", desc: "Create poster", file: "app/api/admin/posters/route.ts", tags: ["admin", "multipart"] },
+      { method: "GET", path: "/api/admin/posters/:id", desc: "Get poster for editing", file: "app/api/admin/posters/[id]/route.ts", tags: ["admin"] },
+      { method: "PUT", path: "/api/admin/posters/:id", desc: "Update poster", file: "app/api/admin/posters/[id]/route.ts", tags: ["admin", "multipart"] },
+      { method: "DELETE", path: "/api/admin/posters/:id", desc: "Delete poster", file: "app/api/admin/posters/[id]/route.ts", tags: ["admin"] },
+    ]
+  },
+  {
+    name: "Admin — Songs",
+    prefix: "/api/admin/songs",
+    endpoints: [
+      { method: "GET", path: "/api/admin/songs", desc: "List songs (admin view)", file: "app/api/admin/songs/route.ts", tags: ["admin"] },
+      { method: "POST", path: "/api/admin/songs", desc: "Create song with audio processing", file: "app/api/admin/songs/route.ts", tags: ["admin", "multipart"] },
+      { method: "GET", path: "/api/admin/songs/:id", desc: "Get song for editing", file: "app/api/admin/songs/[id]/route.ts", tags: ["admin"] },
+      { method: "PUT", path: "/api/admin/songs/:id", desc: "Update song (optional new audio)", file: "app/api/admin/songs/[id]/route.ts", tags: ["admin", "multipart"] },
+      { method: "DELETE", path: "/api/admin/songs/:id", desc: "Delete song", file: "app/api/admin/songs/[id]/route.ts", tags: ["admin"] },
+    ]
+  },
+  {
+    name: "Admin — Song Categories",
+    prefix: "/api/admin/song-categories",
+    endpoints: [
+      { method: "GET", path: "/api/admin/song-categories", desc: "List song categories", file: "app/api/admin/song-categories/route.ts", tags: ["admin"] },
+      { method: "POST", path: "/api/admin/song-categories", desc: "Create category (name, optional slug, description)", file: "app/api/admin/song-categories/route.ts", tags: ["admin"] },
+      { method: "PUT", path: "/api/admin/song-categories/:id", desc: "Update category", file: "app/api/admin/song-categories/[id]/route.ts", tags: ["admin"] },
+      { method: "DELETE", path: "/api/admin/song-categories/:id", desc: "Delete category", file: "app/api/admin/song-categories/[id]/route.ts", tags: ["admin"] },
+    ]
+  },
+  {
+    name: "Admin — Song Blocks",
+    prefix: "/api/admin/song-blocks",
+    endpoints: [
+      { method: "GET", path: "/api/admin/song-blocks", desc: "List song blocks", file: "app/api/admin/song-blocks/route.ts", tags: ["admin"] },
+      { method: "POST", path: "/api/admin/song-blocks", desc: "Create block (title, layout, song_ids, etc.)", file: "app/api/admin/song-blocks/route.ts", tags: ["admin"] },
+      { method: "PUT", path: "/api/admin/song-blocks/:id", desc: "Update block", file: "app/api/admin/song-blocks/[id]/route.ts", tags: ["admin"] },
+      { method: "DELETE", path: "/api/admin/song-blocks/:id", desc: "Delete block", file: "app/api/admin/song-blocks/[id]/route.ts", tags: ["admin"] },
+    ]
+  },
+  {
+    name: "Admin — Reports",
+    prefix: "/api/admin/reports",
+    endpoints: [
+      { method: "GET", path: "/api/admin/reports", desc: "List pending comment reports", file: "app/api/admin/reports/route.ts", tags: ["admin"] },
+      { method: "POST", path: "/api/admin/reports/:id/resolve", desc: "Resolve report (action: dismiss/delete_comment/suspend_user/ban_user)", file: "app/api/admin/reports/[id]/resolve/route.ts", tags: ["admin"] },
+    ]
+  },
+];
+
+const tagLabels = { auth: "auth required", admin: "admin only", multipart: "multipart" };
+
+function renderBadges(tags = []) {
+  return tags.map(t => `<span class="badge ${t}">${tagLabels[t] || t}</span>`).join("");
+}
+
+function render() {
+  const container = document.getElementById("endpoints");
+  const total = sections.reduce((n, s) => n + s.endpoints.length, 0);
+  container.innerHTML = sections.map((section, si) => `
+    <div class="section" data-section="${si}">
+      <div class="section-header">
+        <h2>${section.name}</h2>
+        <span class="section-count">${section.endpoints.length}</span>
+      </div>
+      ${section.endpoints.map(ep => `
+        <div class="endpoint" data-method="${ep.method}" data-section="${si}"
+             data-search="${(ep.method + ' ' + ep.path + ' ' + ep.desc + ' ' + ep.file).toLowerCase()}">
+          <span class="method ${ep.method}">${ep.method}</span>
+          <div>
+            <div class="endpoint-path">${ep.path}${renderBadges(ep.tags)}</div>
+            <div class="endpoint-desc">${ep.desc}</div>
+            <div class="endpoint-file">${ep.file}</div>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `).join("");
+
+  document.getElementById("subtitle").textContent =
+    `Next.js App Router — ${total} endpoints across 71 route files`;
+  document.getElementById("stats").textContent = `Showing ${total} of ${total} endpoints`;
+
+  const sectionFilter = document.getElementById("section-filter");
+  sections.forEach((s, i) => {
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = s.name;
+    sectionFilter.appendChild(opt);
+  });
+}
+
+function filter() {
+  const q = document.getElementById("search").value.toLowerCase();
+  const method = document.getElementById("method-filter").value;
+  const section = document.getElementById("section-filter").value;
+  let visible = 0;
+  const total = document.querySelectorAll(".endpoint").length;
+
+  document.querySelectorAll(".section").forEach(sec => {
+    const si = sec.dataset.section;
+    if (section !== "" && si !== section) {
+      sec.classList.add("hidden");
+      return;
+    }
+    let sectionVisible = 0;
+    sec.querySelectorAll(".endpoint").forEach(ep => {
+      const matchSearch = !q || ep.dataset.search.includes(q);
+      const matchMethod = !method || ep.dataset.method === method;
+      const show = matchSearch && matchMethod;
+      ep.classList.toggle("hidden", !show);
+      if (show) { visible++; sectionVisible++; }
+    });
+    sec.classList.toggle("hidden", sectionVisible === 0);
+  });
+
+  document.getElementById("stats").textContent = `Showing ${visible} of ${total} endpoints`;
+}
+
+document.getElementById("search").addEventListener("input", filter);
+document.getElementById("method-filter").addEventListener("change", filter);
+document.getElementById("section-filter").addEventListener("change", filter);
+
+render();
+</script>
+
+</body>
+</html>
