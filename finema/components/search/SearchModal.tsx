@@ -30,6 +30,125 @@ const RATING_OPTIONS: { value: number | null; label: string }[] = [
   { value: 5, label: "5 stars" },
 ];
 
+const GENERAL_SEARCH_SECTIONS: {
+  title: string;
+  matches: (type: SearchContentType) => boolean;
+}[] = [
+  {
+    title: "Movies & Series",
+    matches: (type) => type === "movie" || type === "series",
+  },
+  { title: "Songs", matches: (type) => type === "song" },
+  { title: "Posters", matches: (type) => type === "poster" },
+];
+
+interface SearchResultRowProps {
+  item: SearchResultItem;
+  index: number;
+  activeIndex: number;
+  onHover: () => void;
+  onSelect: () => void;
+}
+
+function SearchResultRow({
+  item,
+  index,
+  activeIndex,
+  onHover,
+  onSelect,
+}: SearchResultRowProps) {
+  return (
+    <li>
+      <button
+        type="button"
+        onMouseEnter={onHover}
+        onClick={onSelect}
+        className={`flex w-full items-center gap-4 rounded-lg px-3 py-2.5 text-left transition-colors ${
+          index === activeIndex ? "bg-white/10" : "hover:bg-white/5"
+        }`}
+      >
+        <div
+          className="h-24 w-16 sm:h-28 sm:w-[4.5rem] flex-shrink-0 rounded-md overflow-hidden shadow-md ring-1 ring-white/10 relative"
+          style={{ background: movieGradient(item.title) }}
+        >
+          {item.poster_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={item.poster_url}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+          )}
+          <span
+            className={`absolute top-1 left-1 z-10 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+              item.type === "series"
+                ? "bg-finema-accent/90 text-white"
+                : item.type === "song"
+                  ? "bg-[#1ed760]/90 text-black"
+                  : item.type === "poster"
+                    ? "bg-white/90 text-black"
+                    : "bg-black/70 text-white"
+            }`}
+          >
+            {item.type === "series"
+              ? "Series"
+              : item.type === "song"
+                ? "Song"
+                : item.type === "poster"
+                  ? "Poster"
+                  : "Movie"}
+          </span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium text-finema-text truncate">
+            {item.title}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+            {item.type === "song" && item.artist ? (
+              <span className="text-xs text-finema-muted">{item.artist}</span>
+            ) : item.type === "poster" &&
+              item.like_count != null &&
+              item.like_count > 0 ? (
+              <span className="text-xs text-finema-muted">
+                {item.like_count} {item.like_count === 1 ? "like" : "likes"}
+              </span>
+            ) : item.avg_rating != null && item.avg_rating > 0 ? (
+              <StarRatingDisplay
+                value={item.avg_rating}
+                count={item.rating_count}
+                size="sm"
+              />
+            ) : (
+              <span className="text-xs text-finema-muted">
+                {item.type === "song" || item.type === "poster" ? "—" : "No rating"}
+              </span>
+            )}
+            {item.release_year != null &&
+              (item.type === "movie" || item.type === "series") && (
+                <>
+                  <span className="text-xs text-finema-muted">·</span>
+                  <span className="text-xs text-finema-muted">
+                    {item.release_year}
+                  </span>
+                </>
+              )}
+            {item.type === "series" &&
+              item.episode_count != null &&
+              item.episode_count > 0 && (
+                <>
+                  <span className="text-xs text-finema-muted">·</span>
+                  <span className="text-xs text-finema-muted">
+                    {item.episode_count} episodes
+                  </span>
+                </>
+              )}
+          </div>
+        </div>
+      </button>
+    </li>
+  );
+}
+
 export function isTextInput(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
@@ -60,6 +179,24 @@ export function SearchModal({ open, onClose, onSelect }: SearchModalProps) {
 
   const hasAppliedFilters =
     typeFilter !== "all" || parsedYear !== null || minRating !== null;
+
+  const isGeneralSearch =
+    typeFilter === "all" && parsedYear === null && minRating === null;
+
+  const groupedSections = useMemo(() => {
+    if (!isGeneralSearch) return null;
+    return GENERAL_SEARCH_SECTIONS.map((section) => ({
+      title: section.title,
+      items: results.filter((item) => section.matches(item.type)),
+    })).filter((section) => section.items.length > 0);
+  }, [isGeneralSearch, results]);
+
+  const displayResults = useMemo(() => {
+    if (groupedSections) {
+      return groupedSections.flatMap((section) => section.items);
+    }
+    return results;
+  }, [groupedSections, results]);
 
   const showMovieSeriesFilters =
     typeFilter === "all" || typeFilter === "movie" || typeFilter === "series";
@@ -123,8 +260,8 @@ export function SearchModal({ open, onClose, onSelect }: SearchModalProps) {
   }, [open, query, typeFilter, parsedYear, minRating, hasActiveFilters]);
 
   const activeItem = useMemo(
-    () => results[activeIndex],
-    [results, activeIndex]
+    () => displayResults[activeIndex],
+    [displayResults, activeIndex]
   );
 
   useEffect(() => {
@@ -139,7 +276,7 @@ export function SearchModal({ open, onClose, onSelect }: SearchModalProps) {
       if (event.key === "ArrowDown") {
         event.preventDefault();
         setActiveIndex((prev) =>
-          Math.min(prev + 1, Math.max(results.length - 1, 0))
+          Math.min(prev + 1, Math.max(displayResults.length - 1, 0))
         );
         return;
       }
@@ -162,7 +299,7 @@ export function SearchModal({ open, onClose, onSelect }: SearchModalProps) {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose, onSelect, activeItem, results.length]);
+  }, [open, onClose, onSelect, activeItem, displayResults.length]);
 
   return (
     <AnimatePresence>
@@ -355,112 +492,59 @@ export function SearchModal({ open, onClose, onSelect }: SearchModalProps) {
                 <p className="px-3 py-4 text-sm text-finema-muted">
                   Type a title or use filters to search.
                 </p>
-              ) : results.length === 0 ? (
+              ) : displayResults.length === 0 ? (
                 <p className="px-3 py-4 text-sm text-finema-muted">
                   No results found.
                 </p>
+              ) : groupedSections ? (
+                <div>
+                  {groupedSections.map((section, sectionIndex) => {
+                    const sectionStartIndex = groupedSections
+                      .slice(0, sectionIndex)
+                      .reduce((sum, current) => sum + current.items.length, 0);
+
+                    return (
+                      <section
+                        key={section.title}
+                        className={
+                          sectionIndex > 0
+                            ? "border-t border-white/15"
+                            : undefined
+                        }
+                      >
+                        <h3 className="sticky top-0 z-10 bg-finema-surface/95 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-finema-muted">
+                          {section.title}
+                        </h3>
+                        <ul className="space-y-1 pb-2">
+                          {section.items.map((item, itemIndex) => {
+                            const index = sectionStartIndex + itemIndex;
+                            return (
+                              <SearchResultRow
+                                key={`${item.type}-${item.id}`}
+                                item={item}
+                                index={index}
+                                activeIndex={activeIndex}
+                                onHover={() => setActiveIndex(index)}
+                                onSelect={() => void onSelect(item)}
+                              />
+                            );
+                          })}
+                        </ul>
+                      </section>
+                    );
+                  })}
+                </div>
               ) : (
                 <ul className="space-y-1">
-                  {results.map((item, index) => (
-                    <li key={`${item.type}-${item.id}`}>
-                      <button
-                        type="button"
-                        onMouseEnter={() => setActiveIndex(index)}
-                        onClick={() => void onSelect(item)}
-                        className={`flex w-full items-center gap-4 rounded-lg px-3 py-2.5 text-left transition-colors ${
-                          index === activeIndex
-                            ? "bg-white/10"
-                            : "hover:bg-white/5"
-                        }`}
-                      >
-                        <div
-                          className="h-24 w-16 sm:h-28 sm:w-[4.5rem] flex-shrink-0 rounded-md overflow-hidden shadow-md ring-1 ring-white/10 relative"
-                          style={{ background: movieGradient(item.title) }}
-                        >
-                          {item.poster_url && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={item.poster_url}
-                              alt=""
-                              className="h-full w-full object-cover"
-                            />
-                          )}
-                          <span
-                            className={`absolute top-1 left-1 z-10 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${
-                              item.type === "series"
-                                ? "bg-finema-accent/90 text-white"
-                                : item.type === "song"
-                                  ? "bg-[#1ed760]/90 text-black"
-                                  : item.type === "poster"
-                                    ? "bg-white/90 text-black"
-                                    : "bg-black/70 text-white"
-                            }`}
-                          >
-                            {item.type === "series"
-                              ? "Series"
-                              : item.type === "song"
-                                ? "Song"
-                                : item.type === "poster"
-                                  ? "Poster"
-                                  : "Movie"}
-                          </span>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium text-finema-text truncate">
-                            {item.title}
-                          </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                            {item.type === "song" && item.artist ? (
-                              <span className="text-xs text-finema-muted">
-                                {item.artist}
-                              </span>
-                            ) : item.type === "poster" &&
-                              item.like_count != null &&
-                              item.like_count > 0 ? (
-                              <span className="text-xs text-finema-muted">
-                                {item.like_count}{" "}
-                                {item.like_count === 1 ? "like" : "likes"}
-                              </span>
-                            ) : item.avg_rating != null && item.avg_rating > 0 ? (
-                              <StarRatingDisplay
-                                value={item.avg_rating}
-                                count={item.rating_count}
-                                size="sm"
-                              />
-                            ) : (
-                              <span className="text-xs text-finema-muted">
-                                {item.type === "song" || item.type === "poster"
-                                  ? "—"
-                                  : "No rating"}
-                              </span>
-                            )}
-                            {item.release_year != null &&
-                              (item.type === "movie" || item.type === "series") && (
-                              <>
-                                <span className="text-xs text-finema-muted">
-                                  ·
-                                </span>
-                                <span className="text-xs text-finema-muted">
-                                  {item.release_year}
-                                </span>
-                              </>
-                            )}
-                            {item.type === "series" &&
-                              item.episode_count != null &&
-                              item.episode_count > 0 && (
-                                <>
-                                  <span className="text-xs text-finema-muted">
-                                    ·
-                                  </span>
-                                  <span className="text-xs text-finema-muted">
-                                    {item.episode_count} episodes
-                                  </span>
-                                </>
-                              )}
-                          </div>
-                        </div>
-                      </button>
-                    </li>
+                  {displayResults.map((item, index) => (
+                    <SearchResultRow
+                      key={`${item.type}-${item.id}`}
+                      item={item}
+                      index={index}
+                      activeIndex={activeIndex}
+                      onHover={() => setActiveIndex(index)}
+                      onSelect={() => void onSelect(item)}
+                    />
                   ))}
                 </ul>
               )}
