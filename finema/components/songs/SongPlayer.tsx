@@ -147,21 +147,23 @@ export function SongPlayer({
 
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
     seekAtClientX(e.clientX);
-    e.currentTarget.setPointerCapture(e.pointerId);
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
     if (!isDraggingRef.current) {
       isDraggingRef.current = true;
       setIsDragging(true);
+      e.currentTarget.setPointerCapture(e.pointerId);
     }
     e.preventDefault();
     seekAtClientX(e.clientX);
   }
 
   function handlePointerUp(e: React.PointerEvent<HTMLDivElement>) {
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+    if (
+      isDraggingRef.current &&
+      e.currentTarget.hasPointerCapture(e.pointerId)
+    ) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
     endDrag();

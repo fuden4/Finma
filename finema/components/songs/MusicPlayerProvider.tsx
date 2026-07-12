@@ -121,6 +121,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [track]);
 
+  const repeatRef = useRef(repeat);
+  repeatRef.current = repeat;
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -146,8 +149,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const onLoadedMetadata = () => {
       if (Number.isFinite(audio.duration) && audio.duration > 0) {
         setDuration(audio.duration);
-      } else if (track?.duration_seconds) {
-        setDuration(track.duration_seconds);
+      } else if (trackRef.current?.duration_seconds) {
+        setDuration(trackRef.current.duration_seconds);
       }
       applyPendingSeek();
     };
@@ -160,7 +163,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const onPause = () => setIsPlaying(false);
     const onEnded = () => {
       setIsPlaying(false);
-      if (repeat) {
+      if (repeatRef.current) {
         audio.currentTime = 0;
         void audio.play().catch(() => undefined);
         return;
@@ -183,7 +186,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("ended", onEnded);
     };
-  }, [repeat, track?.duration_seconds]);
+  }, []);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -221,8 +224,12 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const audio = audioRef.current;
     const currentTrack = trackRef.current;
     if (!audio || !currentTrack) return false;
-    if (!audio.src || loadedTrackIdRef.current !== currentTrack.id) {
+    if (
+      loadedTrackIdRef.current !== currentTrack.id ||
+      !audio.currentSrc
+    ) {
       loadedTrackIdRef.current = currentTrack.id;
+      pendingSeekRef.current = null;
       audio.src = currentTrack.audio_url;
       audio.load();
     }
@@ -231,25 +238,15 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
-    const currentTrack = trackRef.current;
-    if (!audio || !currentTrack) return;
-    if (audio.paused) {
-      if (!ensureAudioSource()) return;
-      const startPlayback = () => {
-        void audio.play().catch(() => undefined);
-      };
-      if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-        startPlayback();
-      } else {
-        const onCanPlay = () => {
-          audio.removeEventListener("canplay", onCanPlay);
-          startPlayback();
-        };
-        audio.addEventListener("canplay", onCanPlay);
-      }
-    } else {
+    if (!audio || !trackRef.current) return;
+
+    if (!audio.paused) {
       audio.pause();
+      return;
     }
+
+    if (!ensureAudioSource()) return;
+    void audio.play().catch(() => undefined);
   }, [ensureAudioSource]);
 
   const getEffectiveDuration = useCallback(() => {
@@ -367,7 +364,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   return (
     <MusicPlayerContext.Provider value={value}>
       {children}
-      <audio ref={audioRef} preload="metadata" className="hidden" />
+      <audio ref={audioRef} preload="auto" className="hidden" />
     </MusicPlayerContext.Provider>
   );
 }
