@@ -1,7 +1,5 @@
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { open, readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
 
 const AUDIO_ROOT = path.join(process.cwd(), "public", "audio");
@@ -24,10 +22,6 @@ function resolveAudioPath(segments: string[]): string | null {
     return null;
   }
   return filePath;
-}
-
-function toWebStream(nodeStream: Readable) {
-  return Readable.toWeb(nodeStream);
 }
 
 export async function GET(
@@ -74,9 +68,15 @@ export async function GET(
       }
 
       const chunkSize = end - start + 1;
-      const stream = createReadStream(filePath, { start, end });
+      const buffer = Buffer.alloc(chunkSize);
+      const file = await open(filePath, "r");
+      try {
+        await file.read(buffer, 0, chunkSize, start);
+      } finally {
+        await file.close();
+      }
 
-      return new NextResponse(toWebStream(stream), {
+      return new NextResponse(buffer, {
         status: 206,
         headers: {
           "Content-Type": contentType,
@@ -88,8 +88,8 @@ export async function GET(
       });
     }
 
-    const stream = createReadStream(filePath);
-    return new NextResponse(toWebStream(stream), {
+    const data = await readFile(filePath);
+    return new NextResponse(data, {
       headers: {
         "Content-Type": contentType,
         "Content-Length": String(fileSize),
