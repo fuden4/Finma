@@ -14,6 +14,13 @@ import type {
   SongWithStats,
 } from "./types";
 
+const TARGET_LUFS = -14.0;
+
+function computeVolumeAdjustment(sourceLufs: number | null): number {
+  if (sourceLufs == null) return 0;
+  return TARGET_LUFS - sourceLufs;
+}
+
 async function reserveSongSlug(
   client: PoolClient,
   title: string,
@@ -47,6 +54,7 @@ const SONG_SELECT = `
   s.audio_url,
   s.download_url,
   s.duration_seconds,
+  s.source_lufs,
   s.category_id,
   sc.name AS category_name,
   s.created_at,
@@ -63,6 +71,7 @@ function toSong(row: {
   audio_url: string;
   download_url: string;
   duration_seconds: number;
+  source_lufs: number | null;
   category_id: string | null;
   category_name?: string | null;
   created_at: Date;
@@ -78,6 +87,8 @@ function toSong(row: {
     audio_url: row.audio_url,
     download_url: row.download_url,
     duration_seconds: row.duration_seconds,
+    source_lufs: row.source_lufs,
+    volume_adjustment_db: computeVolumeAdjustment(row.source_lufs),
     category_id: row.category_id,
     category_name: row.category_name ?? null,
     created_at: row.created_at.toISOString(),
@@ -315,6 +326,7 @@ export interface CreateSongInput {
   audio_url: string;
   download_url: string;
   duration_seconds: number;
+  source_lufs: number | null;
   category_id: string | null;
 }
 
@@ -326,10 +338,10 @@ export async function createSong(input: CreateSongInput): Promise<Song> {
     const result = await client.query(
       `INSERT INTO songs (
          title, slug, description, artist, cover_url, audio_url, download_url,
-         duration_seconds, category_id
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         duration_seconds, source_lufs, category_id
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING id, slug, title, description, artist, cover_url, audio_url, download_url,
-         duration_seconds, category_id, created_at, updated_at`,
+         duration_seconds, source_lufs, category_id, created_at, updated_at`,
       [
         input.title,
         slug,
@@ -339,6 +351,7 @@ export async function createSong(input: CreateSongInput): Promise<Song> {
         input.audio_url,
         input.download_url,
         input.duration_seconds,
+        input.source_lufs,
         input.category_id,
       ]
     );
@@ -361,10 +374,11 @@ export async function updateSong(
     const result = await client.query(
       `UPDATE songs SET
          title = $2, slug = $3, description = $4, artist = $5, cover_url = $6,
-         audio_url = $7, download_url = $8, duration_seconds = $9, category_id = $10
+         audio_url = $7, download_url = $8, duration_seconds = $9, source_lufs = $10,
+         category_id = $11
        WHERE id = $1
        RETURNING id, slug, title, description, artist, cover_url, audio_url, download_url,
-         duration_seconds, category_id, created_at, updated_at`,
+         duration_seconds, source_lufs, category_id, created_at, updated_at`,
       [
         id,
         input.title,
@@ -375,6 +389,7 @@ export async function updateSong(
         input.audio_url,
         input.download_url,
         input.duration_seconds,
+        input.source_lufs,
         input.category_id,
       ]
     );
@@ -764,8 +779,8 @@ export async function getPlaylistWithSongs(
   const row = playlistResult.rows[0];
   const songsResult = await pool.query(
     `SELECT
-       s.id, s.title, s.description, s.artist, s.cover_url, s.audio_url,
-       s.download_url, s.duration_seconds, s.category_id, sc.name AS category_name,
+       s.id, s.slug, s.title, s.description, s.artist, s.cover_url, s.audio_url,
+       s.download_url, s.duration_seconds, s.source_lufs, s.category_id, sc.name AS category_name,
        s.created_at, s.updated_at
      FROM playlist_songs ps
      JOIN songs s ON s.id = ps.song_id

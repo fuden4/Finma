@@ -45,6 +45,7 @@ export async function POST(request: Request) {
       audio_url: audio.audio_url,
       download_url: audio.download_url,
       duration_seconds: audio.duration_seconds,
+      source_lufs: audio.source_lufs,
       category_id: parsed.category_id,
     });
 

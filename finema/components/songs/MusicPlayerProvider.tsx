@@ -20,6 +20,7 @@ export interface MusicTrack {
   cover_url: string;
   audio_url: string;
   duration_seconds: number;
+  volume_adjustment_db: number;
 }
 
 export type PlayerView = "expanded" | "minimized" | null;
@@ -73,6 +74,10 @@ export function formatPlaybackTime(seconds: number): string {
     return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   }
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function trackLinearGain(db: number): number {
+  return Math.min(1, Math.pow(10, db / 20));
 }
 
 export function MusicPlayerProvider({ children }: { children: ReactNode }) {
@@ -232,8 +237,10 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }, [audioNode, repeat]);
 
   useEffect(() => {
-    if (audioNode) audioNode.volume = volume;
-  }, [audioNode, volume]);
+    if (!audioNode) return;
+    const trackGain = trackLinearGain(track?.volume_adjustment_db ?? 0);
+    audioNode.volume = Math.min(1, Math.max(0, volume * trackGain));
+  }, [audioNode, volume, track]);
 
   const loadTrack = useCallback(
     (newTrack: MusicTrack, options?: { autoplay?: boolean; view?: PlayerView }) => {

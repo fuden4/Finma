@@ -15,6 +15,8 @@
     "db:migrate-songs": "tsx db/migrate-songs.ts",
     "db:migrate-song-block-likes": "tsx db/migrate-song-block-likes.ts",
     "db:migrate-content-slugs": "tsx db/migrate-content-slugs.ts",
+    "db:migrate-song-source-lufs": "tsx db/migrate-song-source-lufs.ts",
+    "db:backfill-song-lufs": "tsx db/backfill-song-lufs.ts",
     "db:seed": "tsx db/migrate.ts --seed-only"
   },
   "dependencies": {

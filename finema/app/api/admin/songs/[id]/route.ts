@@ -55,12 +55,14 @@ export async function PUT(request: Request, context: RouteContext) {
     let audio_url = existing.audio_url;
     let download_url = existing.download_url;
     let duration_seconds = existing.duration_seconds;
+    let source_lufs = existing.source_lufs;
 
     if (parsed.audio_file) {
       const audio = await processSongAudioUpload(parsed.audio_file, parsed.title);
       audio_url = audio.audio_url;
       download_url = audio.download_url;
       duration_seconds = audio.duration_seconds;
+      source_lufs = audio.source_lufs;
     }
 
     const song = await updateSong(id, {
@@ -71,6 +73,7 @@ export async function PUT(request: Request, context: RouteContext) {
       audio_url,
       download_url,
       duration_seconds,
+      source_lufs,
       category_id: parsed.category_id,
     });
 

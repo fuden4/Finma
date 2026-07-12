@@ -379,6 +379,7 @@ CREATE TABLE songs (
   audio_url        TEXT NOT NULL,
   download_url     TEXT NOT NULL,
   duration_seconds INTEGER NOT NULL,
+  source_lufs      REAL,
   category_id      UUID REFERENCES song_categories(id) ON DELETE SET NULL,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()

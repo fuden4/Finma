@@ -7,6 +7,10 @@ import { motion } from "framer-motion";
 import type { AdminSong } from "@/db/types";
 import { deleteAdminSong } from "@/lib/api-client";
 import { formatDuration } from "@/lib/movie-utils";
+import {
+  formatSourceLufs,
+  formatVolumeAdjustmentDb,
+} from "@/lib/song-loudness";
 
 interface SongTableProps {
   songs: AdminSong[];
@@ -59,6 +63,8 @@ export function SongTable({ songs, onDeleted }: SongTableProps) {
               <th className="px-4 py-3 font-medium">Title</th>
               <th className="px-4 py-3 font-medium">Artist</th>
               <th className="px-4 py-3 font-medium">Duration</th>
+              <th className="px-4 py-3 font-medium">Source LUFS</th>
+              <th className="px-4 py-3 font-medium">Adj. (dB)</th>
               <th className="px-4 py-3 font-medium">Likes</th>
               <th className="px-4 py-3 font-medium text-right">Actions</th>
             </tr>
@@ -86,6 +92,15 @@ export function SongTable({ songs, onDeleted }: SongTableProps) {
                 </td>
                 <td className="px-4 py-3 text-finema-muted">
                   {formatDuration(song.duration_seconds)}
+                </td>
+                <td className="px-4 py-3 text-finema-muted tabular-nums">
+                  {formatSourceLufs(song.source_lufs)}
+                </td>
+                <td className="px-4 py-3 text-finema-muted tabular-nums">
+                  {formatVolumeAdjustmentDb(
+                    song.volume_adjustment_db,
+                    song.source_lufs
+                  )}
                 </td>
                 <td className="px-4 py-3 text-finema-muted">{song.like_count}</td>
                 <td className="px-4 py-3 text-right space-x-2">

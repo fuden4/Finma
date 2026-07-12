@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
-import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SiteFooterGate } from "@/components/layout/SiteFooterGate";
 import { MusicPlayerShell } from "@/components/songs/MusicPlayerShell";
 import "./globals.css";
 
@@ -44,7 +44,7 @@ export default function RootLayout({
       >
         <MusicPlayerShell>
           <div className="flex-1">{children}</div>
-          <SiteFooter />
+          <SiteFooterGate />
         </MusicPlayerShell>
         <GlobalSearch />
       </body>

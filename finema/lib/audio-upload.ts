@@ -3,20 +3,10 @@ import os from "node:os";
 import path from "node:path";
 import { saveImageFile } from "@/lib/upload";
 import { toAudioPublicUrl } from "@/lib/audio-url";
-import {
-  analyzeLoudness,
-  convertToWav24_44100,
-  normalizeAudioToLoudnorm,
-  probeAudioFile,
-  transcodeAudioToAac,
-} from "@/lib/ffmpeg";
+import { measureSourceLoudness, probeAudioFile } from "@/lib/ffmpeg";
 import { HttpError } from "@/lib/http";
 import { slugifyTitle } from "@/lib/slug";
 import { writeUploadToFile } from "@/lib/write-upload";
-
-const TARGET_LUFS = -14;
-const LUFS_TOLERANCE = 1.5;
-const MAX_TRUE_PEAK = -1.0;
 
 const ALLOWED_AUDIO_EXTENSIONS = new Set([".wav", ".mp3", ".m4a", ".aac"]);
 
@@ -78,22 +68,7 @@ export interface ProcessedSongAudio {
   audio_url: string;
   download_url: string;
   duration_seconds: number;
-}
-
-async function prepareWavMaster(
-  inputPath: string,
-  ext: string,
-  convertedPath: string
-): Promise<string> {
-  if (ext === ".wav") {
-    const probe = await probeAudioFile(inputPath);
-    if (probe.sample_rate === 44100 && probe.bits_per_sample === 24) {
-      return inputPath;
-    }
-  }
-
-  await convertToWav24_44100(inputPath, convertedPath);
-  return convertedPath;
+  source_lufs: number;
 }
 
 export async function processSongAudioUpload(
@@ -108,44 +83,28 @@ export async function processSongAudioUpload(
   const slug = slugifyTitle(title) || "song";
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "finema-song-"));
   const tempInput = path.join(tempDir, `input${ext}`);
-  const tempConverted = path.join(tempDir, "converted.wav");
-  const tempNormalized = path.join(tempDir, "normalized.wav");
 
   try {
     await writeUploadToFile(file, tempInput);
 
-    const wavSource = await prepareWavMaster(tempInput, ext, tempConverted);
-    const probe = await probeAudioFile(wavSource);
+    const probe = await probeAudioFile(tempInput);
+    const loudness = await measureSourceLoudness(tempInput);
 
-    const loudness = await analyzeLoudness(wavSource);
+    const originalsDir = path.join(process.cwd(), "public", "audio", "originals");
+    await fs.mkdir(originalsDir, { recursive: true });
 
-    const needsNormalize =
-      Math.abs(loudness.input_i - TARGET_LUFS) > LUFS_TOLERANCE ||
-      loudness.input_tp > MAX_TRUE_PEAK;
+    const filename = `${slug}-${Date.now()}${ext}`;
+    const storedPath = path.join(originalsDir, filename);
+    await fs.copyFile(tempInput, storedPath);
 
-    const masterSource = needsNormalize
-      ? await normalizeAudioToLoudnorm(wavSource, tempNormalized).then(
-          () => tempNormalized
-        )
-      : wavSource;
-
-    const mastersDir = path.join(process.cwd(), "public", "audio", "masters");
-    const streamsDir = path.join(process.cwd(), "public", "audio", "streams");
-    await fs.mkdir(mastersDir, { recursive: true });
-    await fs.mkdir(streamsDir, { recursive: true });
-
-    const masterFilename = `${slug}-${Date.now()}.wav`;
-    const streamFilename = `${slug}-${Date.now()}.m4a`;
-    const masterPath = path.join(mastersDir, masterFilename);
-    const streamPath = path.join(streamsDir, streamFilename);
-
-    await fs.copyFile(masterSource, masterPath);
-    await transcodeAudioToAac(masterPath, streamPath);
+    const publicPath = `originals/${filename}`;
+    const publicUrl = toAudioPublicUrl(publicPath);
 
     return {
-      audio_url: toAudioPublicUrl(`streams/${streamFilename}`),
-      download_url: toAudioPublicUrl(`masters/${masterFilename}`),
+      audio_url: publicUrl,
+      download_url: publicUrl,
       duration_seconds: probe.duration_seconds,
+      source_lufs: loudness.input_i,
     };
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => undefined);

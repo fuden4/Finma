@@ -7,6 +7,13 @@ import { slugifyTitle } from "@/lib/slug";
 
 const AUDIO_ROOT = path.join(process.cwd(), "public", "audio");
 
+const MIME_TYPES: Record<string, string> = {
+  ".wav": "audio/wav",
+  ".m4a": "audio/mp4",
+  ".aac": "audio/aac",
+  ".mp3": "audio/mpeg",
+};
+
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
@@ -27,11 +34,13 @@ export async function GET(_request: Request, context: RouteContext) {
     }
 
     const data = await readFile(filePath);
-    const filename = `${slugifyTitle(song.title) || "song"}.wav`;
+    const ext = path.extname(filePath).toLowerCase() || ".mp3";
+    const contentType = MIME_TYPES[ext] ?? "application/octet-stream";
+    const filename = `${slugifyTitle(song.title) || "song"}${ext}`;
 
     return new NextResponse(data, {
       headers: {
-        "Content-Type": "audio/wav",
+        "Content-Type": contentType,
         "Content-Disposition": `attachment; filename="${filename}"`,
         "Cache-Control": "private, no-cache",
       },

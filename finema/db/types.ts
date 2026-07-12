@@ -299,6 +299,8 @@ export interface Song {
   audio_url: string;
   download_url: string;
   duration_seconds: number;
+  source_lufs: number | null;
+  volume_adjustment_db: number;
   category_id: string | null;
   category_name?: string | null;
   created_at: string;

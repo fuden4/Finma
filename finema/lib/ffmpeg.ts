@@ -158,6 +158,40 @@ export interface LoudnormStats {
   output_tp?: number;
 }
 
+export async function measureSourceLoudness(filePath: string): Promise<LoudnormStats> {
+  const ffmpeg = getFfmpegPath();
+  try {
+    const { stderr } = await execFileAsync(ffmpeg, [
+      "-hide_banner",
+      "-i",
+      filePath,
+      "-af",
+      "loudnorm=print_format=json",
+      "-f",
+      "null",
+      "-",
+    ]);
+    const match = stderr.match(/\{[\s\S]*\}/);
+    if (!match) {
+      throw new Error("Could not parse loudness analysis");
+    }
+    const data = JSON.parse(match[0]) as {
+      input_i?: string;
+      input_tp?: string;
+    };
+    return {
+      input_i: Number.parseFloat(data.input_i ?? "0"),
+      input_tp: Number.parseFloat(data.input_tp ?? "0"),
+    };
+  } catch (error) {
+    const details = getExecErrorMessage(error);
+    throw new HttpError(
+      500,
+      details ? `Loudness measurement failed: ${details}` : "Loudness measurement failed"
+    );
+  }
+}
+
 export async function analyzeLoudness(filePath: string): Promise<LoudnormStats> {
   const ffmpeg = getFfmpegPath();
   try {

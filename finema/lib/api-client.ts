@@ -381,6 +381,45 @@ async function adminFetch<T>(
   return data as T;
 }
 
+function adminFetchWithUploadProgress<T>(
+  path: string,
+  options: {
+    method: "POST" | "PUT";
+    body: FormData;
+    onUploadProgress?: (percent: number) => void;
+  }
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(options.method, path);
+    xhr.withCredentials = true;
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && options.onUploadProgress) {
+        options.onUploadProgress(
+          Math.min(100, Math.round((event.loaded / event.total) * 100))
+        );
+      }
+    };
+
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText) as { error?: string };
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data as T);
+          return;
+        }
+        reject(new Error(data.error ?? "Request failed"));
+      } catch {
+        reject(new Error("Request failed"));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error("Network error"));
+    xhr.send(options.body);
+  });
+}
+
 export async function getAdminMovies(): Promise<{ movies: AdminMovie[] }> {
   return adminFetch("/api/admin/movies");
 }
@@ -791,18 +830,25 @@ export async function getAdminSong(id: string): Promise<{ song: AdminSong }> {
 }
 
 export async function createAdminSong(
-  formData: FormData
+  formData: FormData,
+  options?: { onUploadProgress?: (percent: number) => void }
 ): Promise<{ song: AdminSong }> {
-  return adminFetch("/api/admin/songs", { method: "POST", body: formData });
+  return adminFetchWithUploadProgress("/api/admin/songs", {
+    method: "POST",
+    body: formData,
+    onUploadProgress: options?.onUploadProgress,
+  });
 }
 
 export async function updateAdminSong(
   id: string,
-  formData: FormData
+  formData: FormData,
+  options?: { onUploadProgress?: (percent: number) => void }
 ): Promise<{ song: AdminSong }> {
-  return adminFetch(`/api/admin/songs/${id}`, {
+  return adminFetchWithUploadProgress(`/api/admin/songs/${id}`, {
     method: "PUT",
     body: formData,
+    onUploadProgress: options?.onUploadProgress,
   });
 }
 

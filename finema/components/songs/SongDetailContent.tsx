@@ -17,6 +17,7 @@ import { songPath } from "@/lib/content-paths";
 import { Navbar } from "@/components/layout/Navbar";
 import { SongCard } from "./SongCard";
 import { SongPlayer } from "./SongPlayer";
+import { SongVolumeControl } from "./SongVolumeControl";
 import {
   type MusicTrack,
   useMusicPlayer,
@@ -116,6 +117,7 @@ export function SongDetailContent({
       cover_url: song.cover_url,
       audio_url: song.audio_url,
       duration_seconds: song.duration_seconds,
+      volume_adjustment_db: song.volume_adjustment_db,
     };
     if (track?.id === song.id) {
       expand();
@@ -268,6 +270,10 @@ export function SongDetailContent({
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
           </motion.div>
 
+          <div className="mb-4 flex justify-center">
+            <SongVolumeControl />
+          </div>
+
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -283,39 +289,79 @@ export function SongDetailContent({
               )}
             </div>
 
-            {user && playlists.length > 0 ? (
-              <div className="relative shrink-0">
-                <button
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              {user && playlists.length > 0 ? (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setPlaylistOpen((open) => !open)}
+                    className="rounded-full border border-white/20 p-2 text-white/80 transition-colors hover:border-white hover:text-white"
+                    aria-label="Add to playlist"
+                  >
+                    <PlusIcon className="h-5 w-5" />
+                  </button>
+                  <AnimatePresence>
+                    {playlistOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                        className="absolute right-0 top-full z-20 mt-2 w-48 overflow-hidden rounded-lg border border-white/10 bg-[#282828] shadow-xl"
+                      >
+                        {playlists.map((pl) => (
+                          <button
+                            key={pl.id}
+                            type="button"
+                            onClick={() => void handleAddToPlaylist(pl.id)}
+                            className="block w-full px-4 py-2.5 text-left text-sm text-white/90 transition-colors hover:bg-white/10"
+                          >
+                            {pl.name}
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ) : null}
+
+              {user ? (
+                <motion.button
                   type="button"
-                  onClick={() => setPlaylistOpen((open) => !open)}
-                  className="rounded-full border border-white/20 p-2 text-white/80 transition-colors hover:border-white hover:text-white"
-                  aria-label="Add to playlist"
+                  onClick={() => void handleLikeToggle()}
+                  disabled={liking}
+                  whileTap={{ scale: 0.94 }}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 sm:px-4 sm:py-2 sm:text-sm ${
+                    song.liked_by_me
+                      ? "bg-[#1ed760]/20 text-[#1ed760]"
+                      : "border border-white/20 text-white/80 hover:border-white/40 hover:text-white"
+                  }`}
                 >
-                  <PlusIcon className="h-5 w-5" />
-                </button>
-                <AnimatePresence>
-                  {playlistOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                      className="absolute right-0 top-full z-20 mt-2 w-48 overflow-hidden rounded-lg border border-white/10 bg-[#282828] shadow-xl"
-                    >
-                      {playlists.map((pl) => (
-                        <button
-                          key={pl.id}
-                          type="button"
-                          onClick={() => void handleAddToPlaylist(pl.id)}
-                          className="block w-full px-4 py-2.5 text-left text-sm text-white/90 transition-colors hover:bg-white/10"
-                        >
-                          {pl.name}
-                        </button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            ) : null}
+                  <motion.span
+                    key={song.liked_by_me ? "liked" : "unliked"}
+                    initial={{ scale: 0.6 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 15 }}
+                  >
+                    {song.liked_by_me ? "♥" : "♡"}
+                  </motion.span>
+                  {song.like_count} {song.like_count === 1 ? "like" : "likes"}
+                </motion.button>
+              ) : (
+                <Link
+                  href={`/login?redirect=${encodeURIComponent(songPath(song))}`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/20 px-3 py-1.5 text-xs text-white/70 transition-colors hover:text-white sm:px-4 sm:py-2 sm:text-sm"
+                >
+                  ♡ {song.like_count} · Sign in to like
+                </Link>
+              )}
+
+              <a
+                href={`/api/songs/${song.id}/download`}
+                className="inline-flex items-center rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-black transition-transform hover:scale-[1.02] sm:px-4 sm:py-2 sm:text-sm"
+              >
+                Download
+              </a>
+            </div>
           </motion.div>
 
           <motion.div
@@ -341,51 +387,6 @@ export function SongDetailContent({
               {song.description}
             </motion.p>
           )}
-
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="mt-8 flex flex-wrap items-center justify-center gap-3"
-          >
-            {user ? (
-              <motion.button
-                type="button"
-                onClick={() => void handleLikeToggle()}
-                disabled={liking}
-                whileTap={{ scale: 0.94 }}
-                className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
-                  song.liked_by_me
-                    ? "bg-[#1ed760]/20 text-[#1ed760]"
-                    : "border border-white/20 text-white/80 hover:border-white/40 hover:text-white"
-                }`}
-              >
-                <motion.span
-                  key={song.liked_by_me ? "liked" : "unliked"}
-                  initial={{ scale: 0.6 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 15 }}
-                >
-                  {song.liked_by_me ? "♥" : "♡"}
-                </motion.span>
-                {song.like_count} {song.like_count === 1 ? "like" : "likes"}
-              </motion.button>
-            ) : (
-              <Link
-                href={`/login?redirect=${encodeURIComponent(songPath(song))}`}
-                className="inline-flex items-center gap-2 rounded-full border border-white/20 px-5 py-2.5 text-sm text-white/70 transition-colors hover:text-white"
-              >
-                ♡ {song.like_count} · Sign in to like
-              </Link>
-            )}
-
-            <a
-              href={`/api/songs/${song.id}/download`}
-              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black transition-transform hover:scale-[1.02]"
-            >
-              Download WAV
-            </a>
-          </motion.div>
         </motion.main>
 
         {relatedSongs.length > 0 && (
