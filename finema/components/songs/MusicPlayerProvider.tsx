@@ -84,6 +84,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const loadedTrackIdRef = useRef<string | null>(null);
   const durationRef = useRef(0);
   const trackRef = useRef<MusicTrack | null>(null);
+  const pendingSeekRef = useRef<number | null>(null);
 
   const [track, setTrack] = useState<MusicTrack | null>(null);
   const [view, setView] = useState<PlayerView>(null);
@@ -95,17 +96,12 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const [volume, setVolume] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
 
+  trackRef.current = track;
+  durationRef.current = duration;
+
   useEffect(() => {
     isDraggingRef.current = isDragging;
   }, [isDragging]);
-
-  useEffect(() => {
-    durationRef.current = duration;
-  }, [duration]);
-
-  useEffect(() => {
-    trackRef.current = track;
-  }, [track]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -113,6 +109,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
 
     if (loadedTrackIdRef.current !== track.id) {
       loadedTrackIdRef.current = track.id;
+      pendingSeekRef.current = null;
       audio.src = track.audio_url;
       audio.load();
       setCurrentTime(0);
@@ -133,12 +130,26 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         setCurrentTime(audio.currentTime);
       }
     };
+    const applyPendingSeek = () => {
+      if (pendingSeekRef.current === null) return;
+      const max =
+        Number.isFinite(audio.duration) && audio.duration > 0
+          ? audio.duration
+          : durationRef.current;
+      if (max <= 0) return;
+      const clamped = Math.min(max, Math.max(0, pendingSeekRef.current));
+      pendingSeekRef.current = null;
+      audio.currentTime = clamped;
+      setCurrentTime(clamped);
+    };
+
     const onLoadedMetadata = () => {
       if (Number.isFinite(audio.duration) && audio.duration > 0) {
         setDuration(audio.duration);
       } else if (track?.duration_seconds) {
         setDuration(track.duration_seconds);
       }
+      applyPendingSeek();
     };
     const onDurationChange = () => {
       if (Number.isFinite(audio.duration) && audio.duration > 0) {
@@ -206,15 +217,40 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     autoplayOnLoadRef.current = true;
   }, []);
 
+  const ensureAudioSource = useCallback(() => {
+    const audio = audioRef.current;
+    const currentTrack = trackRef.current;
+    if (!audio || !currentTrack) return false;
+    if (!audio.src || loadedTrackIdRef.current !== currentTrack.id) {
+      loadedTrackIdRef.current = currentTrack.id;
+      audio.src = currentTrack.audio_url;
+      audio.load();
+    }
+    return true;
+  }, []);
+
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
-    if (!audio || !track) return;
+    const currentTrack = trackRef.current;
+    if (!audio || !currentTrack) return;
     if (audio.paused) {
-      void audio.play().catch(() => undefined);
+      if (!ensureAudioSource()) return;
+      const startPlayback = () => {
+        void audio.play().catch(() => undefined);
+      };
+      if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        startPlayback();
+      } else {
+        const onCanPlay = () => {
+          audio.removeEventListener("canplay", onCanPlay);
+          startPlayback();
+        };
+        audio.addEventListener("canplay", onCanPlay);
+      }
     } else {
       audio.pause();
     }
-  }, [track]);
+  }, [ensureAudioSource]);
 
   const getEffectiveDuration = useCallback(() => {
     const audio = audioRef.current;
@@ -234,6 +270,12 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       const max = getEffectiveDuration();
       if (max <= 0) return;
       const clamped = Math.min(max, Math.max(0, time));
+      if (audio.readyState < HTMLMediaElement.HAVE_METADATA) {
+        pendingSeekRef.current = clamped;
+        setCurrentTime(clamped);
+        return;
+      }
+      pendingSeekRef.current = null;
       audio.currentTime = clamped;
       setCurrentTime(clamped);
     },
@@ -284,6 +326,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     loadedTrackIdRef.current = null;
     onEndedRef.current = null;
     autoplayOnLoadRef.current = false;
+    pendingSeekRef.current = null;
     setTrack(null);
     setView(null);
     setCurrentTime(0);

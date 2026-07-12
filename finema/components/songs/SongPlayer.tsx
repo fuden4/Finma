@@ -145,28 +145,17 @@ export function SongPlayer({
     setIsDragging(false);
   }, [setIsDragging]);
 
-  useEffect(() => {
-    function handleWindowPointerUp() {
-      endDrag();
-    }
-    window.addEventListener("pointerup", handleWindowPointerUp);
-    window.addEventListener("pointercancel", handleWindowPointerUp);
-    return () => {
-      window.removeEventListener("pointerup", handleWindowPointerUp);
-      window.removeEventListener("pointercancel", handleWindowPointerUp);
-    };
-  }, [endDrag]);
-
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    e.preventDefault();
-    isDraggingRef.current = true;
-    setIsDragging(true);
     seekAtClientX(e.clientX);
     e.currentTarget.setPointerCapture(e.pointerId);
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    if (!isDraggingRef.current) return;
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    if (!isDraggingRef.current) {
+      isDraggingRef.current = true;
+      setIsDragging(true);
+    }
     e.preventDefault();
     seekAtClientX(e.clientX);
   }
@@ -253,12 +242,10 @@ export function SongPlayer({
           <SkipIcon className="h-7 w-7 sm:h-8 sm:w-8" direction="back" />
         </button>
 
-        <motion.button
+        <button
           type="button"
           onClick={togglePlay}
-          whileTap={{ scale: 0.92 }}
-          whileHover={{ scale: 1.04 }}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-black shadow-lg shadow-black/40 sm:h-16 sm:w-16"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-black shadow-lg shadow-black/40 transition-transform active:scale-95 sm:h-16 sm:w-16"
           aria-label={isPlaying ? "Pause" : "Play"}
         >
           {isPlaying ? (
@@ -266,7 +253,7 @@ export function SongPlayer({
           ) : (
             <PlayIcon className="ml-0.5 h-7 w-7 sm:h-8 sm:w-8" />
           )}
-        </motion.button>
+        </button>
 
         <button
           type="button"

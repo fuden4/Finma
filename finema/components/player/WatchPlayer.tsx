@@ -6,6 +6,7 @@ import type { MovieDetail } from "@/db/types";
 import { getMe } from "@/lib/api-client";
 import { useHlsPlayer } from "@/hooks/useHlsPlayer";
 import { useWatchProgress } from "@/hooks/useWatchProgress";
+import { useMusicPlayer } from "@/components/songs/MusicPlayerProvider";
 import { PlayerOverlay } from "./PlayerOverlay";
 import { VideoControls } from "./VideoControls";
 
@@ -43,6 +44,7 @@ export function WatchPlayer({
   const [muted, setMuted] = useState(false);
   const hideTimerRef = useRef<number | null>(null);
   const isTouchRef = useRef(false);
+  const { stop: stopMusic } = useMusicPlayer();
 
   const { isLoading, error } = useHlsPlayer({
     videoRef,
@@ -66,10 +68,17 @@ export function WatchPlayer({
   }, []);
 
   useEffect(() => {
+    stopMusic();
+  }, [stopMusic]);
+
+  useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    const onPlay = () => setIsPlaying(true);
+    const onPlay = () => {
+      setIsPlaying(true);
+      stopMusic();
+    };
     const onPause = () => setIsPlaying(false);
     const onTimeUpdate = () => setCurrentTime(video.currentTime);
     const onLoaded = () => setDuration(video.duration || 0);
@@ -90,7 +99,7 @@ export function WatchPlayer({
       video.removeEventListener("loadedmetadata", onLoaded);
       video.removeEventListener("volumechange", onVolumeChange);
     };
-  }, []);
+  }, [stopMusic]);
 
   useEffect(() => {
     const onFullscreenChange = () => {
