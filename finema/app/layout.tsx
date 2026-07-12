@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { IntroGate } from "@/components/intro/IntroGate";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { SiteFooterGate } from "@/components/layout/SiteFooterGate";
 import { MusicPlayerShell } from "@/components/songs/MusicPlayerShell";
@@ -42,11 +43,13 @@ export default function RootLayout({
         suppressHydrationWarning
         className="min-h-full flex flex-col bg-finema-bg text-finema-text"
       >
-        <MusicPlayerShell>
-          <div className="flex-1">{children}</div>
-          <SiteFooterGate />
-        </MusicPlayerShell>
-        <GlobalSearch />
+        <IntroGate>
+          <MusicPlayerShell>
+            <div className="flex-1">{children}</div>
+            <SiteFooterGate />
+          </MusicPlayerShell>
+          <GlobalSearch />
+        </IntroGate>
       </body>
     </html>
   );
