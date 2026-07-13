@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, type RefObject } from "react";
-import { getMe, getWatchProgress, saveWatchProgress, getEpisodeWatchProgress, saveEpisodeWatchProgress } from "@/lib/api-client";
+import {
+  getMe,
+  getWatchProgress,
+  saveWatchProgress,
+  getEpisodeWatchProgress,
+  saveEpisodeWatchProgress,
+} from "@/lib/api-client";
 
 interface UseWatchProgressArgs {
   movieId?: string;
@@ -9,6 +15,8 @@ interface UseWatchProgressArgs {
   videoRef: RefObject<HTMLVideoElement | null>;
   autoPlay?: boolean;
   enabled?: boolean;
+  /** When false, do not restore saved progress (e.g. after playing the branded intro). */
+  applyResume?: boolean;
 }
 
 function tryAutoPlay(video: HTMLVideoElement) {
@@ -31,12 +39,15 @@ export function useWatchProgress({
   videoRef,
   autoPlay = false,
   enabled = true,
+  applyResume = true,
 }: UseWatchProgressArgs) {
   const authenticatedRef = useRef(false);
   const timeoutRef = useRef<number | null>(null);
   const lastSavedRef = useRef<number>(0);
   const autoPlayRef = useRef(autoPlay);
   autoPlayRef.current = autoPlay;
+  const applyResumeRef = useRef(applyResume);
+  applyResumeRef.current = applyResume;
 
   const progressId = episodeId ?? movieId;
 
@@ -79,30 +90,32 @@ export function useWatchProgress({
 
       if (me?.user) {
         authenticatedRef.current = true;
-        try {
-          const result = episodeId
-            ? await getEpisodeWatchProgress(episodeId)
-            : movieId
-              ? await getWatchProgress(movieId)
-              : { progress: null };
-          if (result.progress && result.progress.progress_seconds > 0) {
-            const resumeAt = result.progress.progress_seconds;
-            const seekOnce = () => {
-              video.currentTime = resumeAt;
-              video.removeEventListener("loadedmetadata", seekOnce);
-              finish();
-            };
+        if (applyResumeRef.current) {
+          try {
+            const result = episodeId
+              ? await getEpisodeWatchProgress(episodeId)
+              : movieId
+                ? await getWatchProgress(movieId)
+                : { progress: null };
+            if (result.progress && result.progress.progress_seconds > 0) {
+              const resumeAt = result.progress.progress_seconds;
+              const seekOnce = () => {
+                video.currentTime = resumeAt;
+                video.removeEventListener("loadedmetadata", seekOnce);
+                finish();
+              };
 
-            if (video.readyState >= 1) {
-              video.currentTime = resumeAt;
-              finish();
-            } else {
-              video.addEventListener("loadedmetadata", seekOnce);
+              if (video.readyState >= 1) {
+                video.currentTime = resumeAt;
+                finish();
+              } else {
+                video.addEventListener("loadedmetadata", seekOnce);
+              }
+              return;
             }
-            return;
+          } catch {
+            // If resume fails, keep playback at start.
           }
-        } catch {
-          // If resume fails, keep playback at start.
         }
       }
 
