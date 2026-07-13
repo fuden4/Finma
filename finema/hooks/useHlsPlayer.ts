@@ -6,13 +6,24 @@ import Hls from "hls.js";
 interface UseHlsPlayerArgs {
   videoRef: RefObject<HTMLVideoElement | null>;
   hlsUrl: string;
+  enabled?: boolean;
 }
 
-export function useHlsPlayer({ videoRef, hlsUrl }: UseHlsPlayerArgs) {
-  const [isLoading, setIsLoading] = useState(true);
+export function useHlsPlayer({
+  videoRef,
+  hlsUrl,
+  enabled = true,
+}: UseHlsPlayerArgs) {
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!enabled || !hlsUrl) {
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
+
     const video = videoRef.current;
     if (!video) return;
 
@@ -61,7 +72,7 @@ export function useHlsPlayer({ videoRef, hlsUrl }: UseHlsPlayerArgs) {
       video.removeAttribute("src");
       video.load();
     };
-  }, [hlsUrl, videoRef]);
+  }, [hlsUrl, videoRef, enabled]);
 
   return { isLoading, error };
 }

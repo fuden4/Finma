@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import type { MovieDetail } from "@/db/types";
 import { getMe } from "@/lib/api-client";
 import { useHlsPlayer } from "@/hooks/useHlsPlayer";
@@ -15,6 +15,8 @@ interface WatchPlayerProps {
   episodeId?: string;
   backHref?: string;
 }
+
+type WatchPhase = "intro" | "fading" | "content";
 
 type WebkitVideoElement = HTMLVideoElement & {
   webkitEnterFullscreen?: () => void;
@@ -34,6 +36,10 @@ export function WatchPlayer({
 }: WatchPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const introVideoRef = useRef<HTMLVideoElement>(null);
+  const [phase, setPhase] = useState<WatchPhase>("intro");
+  const [contentVisible, setContentVisible] = useState(false);
+  const [introMuted, setIntroMuted] = useState(false);
   const [isGuest, setIsGuest] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -46,12 +52,30 @@ export function WatchPlayer({
   const isTouchRef = useRef(false);
   const { stop: stopMusic } = useMusicPlayer();
 
+  const contentReady = phase === "content";
+  const hlsEnabled = phase === "fading" || phase === "content";
+
   const { isLoading, error } = useHlsPlayer({
     videoRef,
     hlsUrl: movie.hls_playlist_url ?? "",
+    enabled: hlsEnabled,
   });
 
-  useWatchProgress({ movieId: episodeId ? undefined : movie.id, episodeId, videoRef, autoPlay: true });
+  useWatchProgress({
+    movieId: episodeId ? undefined : movie.id,
+    episodeId,
+    videoRef,
+    autoPlay: true,
+    enabled: contentReady,
+  });
+
+  const finishIntro = useCallback(() => {
+    setPhase((current) => {
+      if (current !== "intro") return current;
+      introVideoRef.current?.pause();
+      return "fading";
+    });
+  }, []);
 
   useEffect(() => {
     isTouchRef.current = isCoarsePointerDevice();
@@ -72,6 +96,42 @@ export function WatchPlayer({
   }, [stopMusic]);
 
   useEffect(() => {
+    if (phase !== "intro") return;
+    const video = introVideoRef.current;
+    if (!video) return;
+
+    video.muted = false;
+    const playUnmuted = async () => {
+      try {
+        await video.play();
+        setIntroMuted(false);
+      } catch {
+        video.muted = true;
+        setIntroMuted(true);
+        await video.play().catch(() => {});
+      }
+    };
+
+    void playUnmuted();
+  }, [phase]);
+
+  useEffect(() => {
+    if (!contentReady) return;
+    const video = videoRef.current;
+    if (!video) return;
+
+    const reveal = () => setContentVisible(true);
+    if (error || video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      reveal();
+    } else {
+      video.addEventListener("canplay", reveal, { once: true });
+      return () => video.removeEventListener("canplay", reveal);
+    }
+  }, [contentReady, error]);
+
+  useEffect(() => {
+    if (!contentReady) return;
+
     const video = videoRef.current;
     if (!video) return;
 
@@ -99,7 +159,7 @@ export function WatchPlayer({
       video.removeEventListener("loadedmetadata", onLoaded);
       video.removeEventListener("volumechange", onVolumeChange);
     };
-  }, [stopMusic]);
+  }, [contentReady, stopMusic]);
 
   useEffect(() => {
     const onFullscreenChange = () => {
@@ -121,6 +181,7 @@ export function WatchPlayer({
   }, []);
 
   const showControls = (autoHide = true) => {
+    if (!contentReady) return;
     setControlsVisible(true);
     if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
     if (!autoHide) return;
@@ -132,6 +193,7 @@ export function WatchPlayer({
   };
 
   useEffect(() => {
+    if (!contentReady) return;
     const timer = window.setTimeout(() => {
       showControls();
     }, 0);
@@ -139,9 +201,10 @@ export function WatchPlayer({
       window.clearTimeout(timer);
       if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
     };
-  }, []);
+  }, [contentReady]);
 
   const togglePlay = async () => {
+    if (!contentReady) return;
     const video = videoRef.current;
     if (!video) return;
     if (video.paused) {
@@ -153,6 +216,8 @@ export function WatchPlayer({
   };
 
   useEffect(() => {
+    if (!contentReady) return;
+
     function onKeyDown(event: KeyboardEvent) {
       if (event.code !== "Space") return;
 
@@ -180,7 +245,7 @@ export function WatchPlayer({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [contentReady]);
 
   const handleSeek = (value: number) => {
     const video = videoRef.current;
@@ -247,6 +312,13 @@ export function WatchPlayer({
     showControls();
   };
 
+  const toggleIntroMute = () => {
+    const video = introVideoRef.current;
+    if (!video) return;
+    video.muted = !video.muted;
+    setIntroMuted(video.muted);
+  };
+
   return (
     <motion.div
       ref={containerRef}
@@ -256,43 +328,93 @@ export function WatchPlayer({
       className="relative w-full h-[100dvh] min-h-[100dvh] bg-black overflow-hidden touch-manipulation"
       onMouseMove={() => showControls()}
       onMouseLeave={() => {
-        if (!isTouchRef.current) setControlsVisible(false);
+        if (contentReady && !isTouchRef.current) setControlsVisible(false);
       }}
       onTouchStart={() => showControls()}
     >
       <video
         ref={videoRef}
-        className="w-full h-full object-contain bg-black"
+        className="absolute inset-0 h-full w-full object-contain bg-black transition-opacity duration-500 ease-in-out"
+        style={{ opacity: contentReady && contentVisible ? 1 : 0 }}
         playsInline
         preload="metadata"
         onClick={togglePlay}
       />
 
-      <PlayerOverlay
-        movie={movie}
-        backHref={backHref}
-        isVisible={controlsVisible}
-        isLoading={isLoading}
-        error={error}
-        isGuest={isGuest}
-        isPlaying={isPlaying}
-      />
+      <AnimatePresence
+        onExitComplete={() => {
+          setPhase((current) => (current === "fading" ? "content" : current));
+        }}
+      >
+        {phase === "intro" && (
+          <motion.div
+            key="watch-intro"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
+            className="absolute inset-0 z-30 flex items-center justify-center bg-black"
+          >
+            <video
+              ref={introVideoRef}
+              src="/intro.mp4"
+              autoPlay
+              playsInline
+              muted={introMuted}
+              className="h-full w-full object-contain bg-black"
+              onEnded={finishIntro}
+              onError={finishIntro}
+            />
 
-      <VideoControls
-        isVisible={controlsVisible}
-        isPlaying={isPlaying}
-        currentTime={currentTime}
-        duration={duration}
-        isFullscreen={isFullscreen}
-        playbackRate={playbackRate}
-        muted={muted}
-        onTogglePlay={togglePlay}
-        onSeek={handleSeek}
-        onSkip={skip}
-        onToggleFullscreen={toggleFullscreen}
-        onChangeRate={changeRate}
-        onToggleMute={toggleMute}
-      />
+            <div className="absolute top-0 right-0 flex items-center gap-2 p-4 pt-[max(1rem,env(safe-area-inset-top))]">
+              <button
+                type="button"
+                onClick={toggleIntroMute}
+                className="rounded-full border border-white/20 bg-black/50 px-3 py-1.5 text-sm text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                aria-label={introMuted ? "Unmute intro" : "Mute intro"}
+              >
+                {introMuted ? "Unmute" : "Mute"}
+              </button>
+              <button
+                type="button"
+                onClick={finishIntro}
+                className="rounded-full border border-white/20 bg-black/50 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+              >
+                Skip
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {contentReady && (
+        <>
+          <PlayerOverlay
+            movie={movie}
+            backHref={backHref}
+            isVisible={controlsVisible}
+            isLoading={isLoading}
+            error={error}
+            isGuest={isGuest}
+            isPlaying={isPlaying}
+          />
+
+          <VideoControls
+            isVisible={controlsVisible}
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            isFullscreen={isFullscreen}
+            playbackRate={playbackRate}
+            muted={muted}
+            onTogglePlay={togglePlay}
+            onSeek={handleSeek}
+            onSkip={skip}
+            onToggleFullscreen={toggleFullscreen}
+            onChangeRate={changeRate}
+            onToggleMute={toggleMute}
+          />
+        </>
+      )}
     </motion.div>
   );
 }

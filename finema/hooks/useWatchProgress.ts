@@ -8,6 +8,7 @@ interface UseWatchProgressArgs {
   episodeId?: string;
   videoRef: RefObject<HTMLVideoElement | null>;
   autoPlay?: boolean;
+  enabled?: boolean;
 }
 
 function tryAutoPlay(video: HTMLVideoElement) {
@@ -29,6 +30,7 @@ export function useWatchProgress({
   episodeId,
   videoRef,
   autoPlay = false,
+  enabled = true,
 }: UseWatchProgressArgs) {
   const authenticatedRef = useRef(false);
   const timeoutRef = useRef<number | null>(null);
@@ -58,6 +60,8 @@ export function useWatchProgress({
   }, [movieId, episodeId, progressId, videoRef]);
 
   useEffect(() => {
+    if (!enabled) return;
+
     const video = videoRef.current;
     if (!video) return;
     let mounted = true;
@@ -110,9 +114,11 @@ export function useWatchProgress({
     return () => {
       mounted = false;
     };
-  }, [movieId, episodeId, videoRef]);
+  }, [movieId, episodeId, videoRef, enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
+
     const video = videoRef.current;
     if (!video) return;
 
@@ -143,5 +149,5 @@ export function useWatchProgress({
       if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
       void flushProgress();
     };
-  }, [flushProgress, videoRef]);
+  }, [flushProgress, videoRef, enabled]);
 }
