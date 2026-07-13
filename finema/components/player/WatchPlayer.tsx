@@ -39,7 +39,6 @@ export function WatchPlayer({
   const introVideoRef = useRef<HTMLVideoElement>(null);
   const [phase, setPhase] = useState<WatchPhase>("intro");
   const [contentVisible, setContentVisible] = useState(false);
-  const [introMuted, setIntroMuted] = useState(false);
   const [isGuest, setIsGuest] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -53,7 +52,16 @@ export function WatchPlayer({
   const { stop: stopMusic } = useMusicPlayer();
 
   const contentReady = phase === "content";
+  const inIntro = phase === "intro";
+  const showChrome = phase === "intro" || phase === "content";
   const hlsEnabled = phase === "fading" || phase === "content";
+
+  const getActiveVideo = useCallback((): HTMLVideoElement | null => {
+    if (phase === "intro" || phase === "fading") {
+      return introVideoRef.current;
+    }
+    return videoRef.current;
+  }, [phase]);
 
   const { isLoading, error } = useHlsPlayer({
     videoRef,
@@ -72,7 +80,13 @@ export function WatchPlayer({
   const finishIntro = useCallback(() => {
     setPhase((current) => {
       if (current !== "intro") return current;
-      introVideoRef.current?.pause();
+      const intro = introVideoRef.current;
+      if (intro) {
+        intro.pause();
+      }
+      setCurrentTime(0);
+      setDuration(0);
+      setIsPlaying(false);
       return "fading";
     });
   }, []);
@@ -95,20 +109,23 @@ export function WatchPlayer({
     stopMusic();
   }, [stopMusic]);
 
+  // Intro: play unmuted in the same player chrome
   useEffect(() => {
     if (phase !== "intro") return;
     const video = introVideoRef.current;
     if (!video) return;
 
     video.muted = false;
+    setMuted(false);
+
     const playUnmuted = async () => {
       try {
         await video.play();
-        setIntroMuted(false);
+        setMuted(false);
+        setIsPlaying(true);
       } catch {
-        video.muted = true;
-        setIntroMuted(true);
-        await video.play().catch(() => {});
+        // Browser may block unmuted autoplay; keep attempting unmuted after user gesture via controls
+        setIsPlaying(false);
       }
     };
 
@@ -129,10 +146,12 @@ export function WatchPlayer({
     }
   }, [contentReady, error]);
 
+  // Bind play/time/mute state to whichever video is active
   useEffect(() => {
-    if (!contentReady) return;
+    if (phase === "fading") return;
 
-    const video = videoRef.current;
+    const video =
+      phase === "intro" ? introVideoRef.current : videoRef.current;
     if (!video) return;
 
     const onPlay = () => {
@@ -142,9 +161,14 @@ export function WatchPlayer({
     const onPause = () => setIsPlaying(false);
     const onTimeUpdate = () => setCurrentTime(video.currentTime);
     const onLoaded = () => setDuration(video.duration || 0);
-    const onVolumeChange = () => {
+    const onVolumeChange = () => setMuted(video.muted);
+
+    if (video.readyState >= 1) {
+      setDuration(video.duration || 0);
+      setCurrentTime(video.currentTime);
       setMuted(video.muted);
-    };
+      setIsPlaying(!video.paused);
+    }
 
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
@@ -159,7 +183,7 @@ export function WatchPlayer({
       video.removeEventListener("loadedmetadata", onLoaded);
       video.removeEventListener("volumechange", onVolumeChange);
     };
-  }, [contentReady, stopMusic]);
+  }, [phase, stopMusic]);
 
   useEffect(() => {
     const onFullscreenChange = () => {
@@ -167,33 +191,39 @@ export function WatchPlayer({
     };
     document.addEventListener("fullscreenchange", onFullscreenChange);
 
-    const video = videoRef.current as WebkitVideoElement | null;
+    const contentVideo = videoRef.current as WebkitVideoElement | null;
+    const introVideo = introVideoRef.current as WebkitVideoElement | null;
     const onWebkitBegin = () => setIsFullscreen(true);
     const onWebkitEnd = () => setIsFullscreen(false);
-    video?.addEventListener("webkitbeginfullscreen", onWebkitBegin);
-    video?.addEventListener("webkitendfullscreen", onWebkitEnd);
+    contentVideo?.addEventListener("webkitbeginfullscreen", onWebkitBegin);
+    contentVideo?.addEventListener("webkitendfullscreen", onWebkitEnd);
+    introVideo?.addEventListener("webkitbeginfullscreen", onWebkitBegin);
+    introVideo?.addEventListener("webkitendfullscreen", onWebkitEnd);
 
     return () => {
       document.removeEventListener("fullscreenchange", onFullscreenChange);
-      video?.removeEventListener("webkitbeginfullscreen", onWebkitBegin);
-      video?.removeEventListener("webkitendfullscreen", onWebkitEnd);
+      contentVideo?.removeEventListener("webkitbeginfullscreen", onWebkitBegin);
+      contentVideo?.removeEventListener("webkitendfullscreen", onWebkitEnd);
+      introVideo?.removeEventListener("webkitbeginfullscreen", onWebkitBegin);
+      introVideo?.removeEventListener("webkitendfullscreen", onWebkitEnd);
     };
   }, []);
 
   const showControls = (autoHide = true) => {
-    if (!contentReady) return;
+    if (!showChrome) return;
     setControlsVisible(true);
     if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
     if (!autoHide) return;
     hideTimerRef.current = window.setTimeout(() => {
-      if (!videoRef.current?.paused) {
+      const video = getActiveVideo();
+      if (video && !video.paused) {
         setControlsVisible(false);
       }
     }, isTouchRef.current ? 4500 : 3000);
   };
 
   useEffect(() => {
-    if (!contentReady) return;
+    if (!showChrome) return;
     const timer = window.setTimeout(() => {
       showControls();
     }, 0);
@@ -201,14 +231,17 @@ export function WatchPlayer({
       window.clearTimeout(timer);
       if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
     };
-  }, [contentReady]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- showControls reads phase via showChrome
+  }, [showChrome]);
 
   const togglePlay = async () => {
-    if (!contentReady) return;
-    const video = videoRef.current;
+    if (!showChrome) return;
+    const video = getActiveVideo();
     if (!video) return;
     if (video.paused) {
-      await video.play();
+      video.muted = false;
+      setMuted(false);
+      await video.play().catch(() => {});
     } else {
       video.pause();
     }
@@ -216,7 +249,7 @@ export function WatchPlayer({
   };
 
   useEffect(() => {
-    if (!contentReady) return;
+    if (!showChrome) return;
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.code !== "Space") return;
@@ -233,21 +266,29 @@ export function WatchPlayer({
       }
 
       event.preventDefault();
-      const video = videoRef.current;
-      if (!video) return;
-      if (video.paused) {
-        void video.play();
-      } else {
-        video.pause();
-      }
-      showControls();
+      void togglePlay();
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [contentReady]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showChrome, phase]);
 
   const handleSeek = (value: number) => {
+    if (inIntro) {
+      const video = introVideoRef.current;
+      if (!video) return;
+      const max = video.duration || duration || 0;
+      if (max > 0 && value >= max - 0.25) {
+        finishIntro();
+        return;
+      }
+      video.currentTime = value;
+      setCurrentTime(value);
+      showControls();
+      return;
+    }
+
     const video = videoRef.current;
     if (!video) return;
     video.currentTime = value;
@@ -256,6 +297,21 @@ export function WatchPlayer({
   };
 
   const skip = (delta: number) => {
+    if (inIntro) {
+      const video = introVideoRef.current;
+      if (!video) return;
+      const max = duration || video.duration || 0;
+      const next = Math.min(Math.max(0, video.currentTime + delta), max);
+      if (max > 0 && next >= max - 0.25) {
+        finishIntro();
+        return;
+      }
+      video.currentTime = next;
+      setCurrentTime(next);
+      showControls();
+      return;
+    }
+
     const video = videoRef.current;
     if (!video) return;
     const max = duration || video.duration || 0;
@@ -267,7 +323,7 @@ export function WatchPlayer({
 
   const toggleFullscreen = async () => {
     const container = containerRef.current;
-    const video = videoRef.current as WebkitVideoElement | null;
+    const video = getActiveVideo() as WebkitVideoElement | null;
     if (!container || !video) return;
 
     try {
@@ -297,7 +353,7 @@ export function WatchPlayer({
   };
 
   const changeRate = (rate: number) => {
-    const video = videoRef.current;
+    const video = getActiveVideo();
     if (!video) return;
     video.playbackRate = rate;
     setPlaybackRate(rate);
@@ -305,18 +361,11 @@ export function WatchPlayer({
   };
 
   const toggleMute = () => {
-    const video = videoRef.current;
+    const video = getActiveVideo();
     if (!video) return;
     video.muted = !video.muted;
     setMuted(video.muted);
     showControls();
-  };
-
-  const toggleIntroMute = () => {
-    const video = introVideoRef.current;
-    if (!video) return;
-    video.muted = !video.muted;
-    setIntroMuted(video.muted);
   };
 
   return (
@@ -328,7 +377,7 @@ export function WatchPlayer({
       className="relative w-full h-[100dvh] min-h-[100dvh] bg-black overflow-hidden touch-manipulation"
       onMouseMove={() => showControls()}
       onMouseLeave={() => {
-        if (contentReady && !isTouchRef.current) setControlsVisible(false);
+        if (showChrome && !isTouchRef.current) setControlsVisible(false);
       }}
       onTouchStart={() => showControls()}
     >
@@ -352,48 +401,31 @@ export function WatchPlayer({
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
-            className="absolute inset-0 z-30 flex items-center justify-center bg-black"
+            className="absolute inset-0 z-[5] flex items-center justify-center bg-black"
           >
             <video
               ref={introVideoRef}
               src="/intro.mp4"
               autoPlay
               playsInline
-              muted={introMuted}
+              muted={muted}
               className="h-full w-full object-contain bg-black"
+              onClick={togglePlay}
               onEnded={finishIntro}
               onError={finishIntro}
             />
-
-            <div className="absolute top-0 right-0 flex items-center gap-2 p-4 pt-[max(1rem,env(safe-area-inset-top))]">
-              <button
-                type="button"
-                onClick={toggleIntroMute}
-                className="rounded-full border border-white/20 bg-black/50 px-3 py-1.5 text-sm text-white backdrop-blur-sm transition-colors hover:bg-black/70"
-                aria-label={introMuted ? "Unmute intro" : "Mute intro"}
-              >
-                {introMuted ? "Unmute" : "Mute"}
-              </button>
-              <button
-                type="button"
-                onClick={finishIntro}
-                className="rounded-full border border-white/20 bg-black/50 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-black/70"
-              >
-                Skip
-              </button>
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {contentReady && (
+      {showChrome && (
         <>
           <PlayerOverlay
             movie={movie}
             backHref={backHref}
             isVisible={controlsVisible}
-            isLoading={isLoading}
-            error={error}
+            isLoading={contentReady ? isLoading : false}
+            error={contentReady ? error : null}
             isGuest={isGuest}
             isPlaying={isPlaying}
           />
